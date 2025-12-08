@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/dashboard_model.dart';
+import '../widgets/sidebar.dart'; // 🔥 AJOUT
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -10,6 +11,7 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   late DashboardModel model;
+  String selectedPage = "dashboard"; // 🔥 Page active
 
   @override
   void initState() {
@@ -26,9 +28,64 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      body: Row(
+        children: [
+          // ---------------- SIDEBAR ----------------
+          SideBar(
+            selectedPage: selectedPage,
+            onItemSelected: (page) {
+              setState(() {
+                selectedPage = page;
+              });
+            },
+          ),
+
+          // ---------------- CONTENU ----------------
+          Expanded(
+            child: selectedPage == "dashboard"
+                ? buildDashboardContent() // Page dashboard (celle que tu avais)
+                : getPage(), // Autres pages (machines, clients, etc.)
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ------ PAGE DYNAMIQUE ------
+  Widget getPage() {
+    switch (selectedPage) {
+      case "machines":
+        return const Center(
+          child: Text("PAGE MACHINES", style: TextStyle(fontSize: 26)),
+        );
+
+      case "clients":
+        return const Center(
+          child: Text("PAGE CLIENTS", style: TextStyle(fontSize: 26)),
+        );
+
+      case "analytics":
+        return const Center(
+          child: Text("PAGE ANALYTICS", style: TextStyle(fontSize: 26)),
+        );
+
+      case "settings":
+        return const Center(
+          child: Text("PAGE PARAMÈTRES", style: TextStyle(fontSize: 26)),
+        );
+
+      default:
+        return buildDashboardContent();
+    }
+  }
+
+  // -------------------------------------------------------------------------
+  // --------------------- TON DASHBOARD ORIGINAL ICI ------------------------
+  // -------------------------------------------------------------------------
+  Widget buildDashboardContent() {
+    return Scaffold(
       backgroundColor: const Color(0xFFF1F5F9),
 
-      // ---------------- HEADER ----------------
       appBar: AppBar(
         elevation: 1,
         backgroundColor: Colors.white,
@@ -67,7 +124,6 @@ class _DashboardPageState extends State<DashboardPage> {
         ],
       ),
 
-      // ---------------- BODY ----------------
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -149,7 +205,6 @@ class _DashboardPageState extends State<DashboardPage> {
 
             const SizedBox(height: 12),
 
-            // -------- MACHINE LIST --------
             const MachineTile(
               name: "Machine X12",
               status: "Active",
@@ -175,7 +230,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 }
 
-/// ---------------- STAT CARD WIDGET ----------------
+// ---------------- STAT CARD (inchangé) ----------------
 class StatCard extends StatelessWidget {
   final String title;
   final String value;
@@ -222,7 +277,7 @@ class StatCard extends StatelessWidget {
   }
 }
 
-/// ---------------- MACHINE TILE ----------------
+// ---------------- MACHINE TILE ----------------
 class MachineTile extends StatelessWidget {
   final String name;
   final String status;
@@ -254,7 +309,6 @@ class MachineTile extends StatelessWidget {
           CircleAvatar(backgroundColor: color, radius: 8),
           const SizedBox(width: 14),
 
-          // Nom + statut
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,7 +325,6 @@ class MachineTile extends StatelessWidget {
             ),
           ),
 
-          // Barre de progression
           SizedBox(
             width: 70,
             child: LinearProgressIndicator(
