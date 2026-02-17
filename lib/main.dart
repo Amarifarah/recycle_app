@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// Import des pages
+import 'package:recycle_app/pages/clients_page.dart';
 import '/pages/login_page.dart';
-import '/pages/dashboard_page.dart'; // ⭐ IMPORTANT : import du dashboard
+import '/pages/dashboard_page.dart';
+import '/pages/clients_page.dart';
+import '/pages/settings_page.dart';
+import '/pages/analytics_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -26,7 +29,9 @@ class MyApp extends StatelessWidget {
         // ⭐⭐ ROUTES ICI ⭐⭐
         routes: {
           "/login": (context) => const LoginPage(),
-          "/dashboard": (context) => const DashboardPage(), // ⭐ ROUTE AJOUTÉE
+          "/dashboard": (context) => const DashboardPage(),
+          "/clients": (context) => const ClientsPage(),
+          "/settings": (context) => const SettingsPage(), // ⭐ ROUTE AJOUTÉE
         },
       ),
     );

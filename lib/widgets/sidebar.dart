@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-
 class SideBar extends StatefulWidget {
   final ValueChanged<String> onItemSelected;
   final String selectedPage;
