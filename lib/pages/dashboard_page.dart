@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:recycle_app/pages/machines_page.dart';
 import '../models/dashboard_model.dart';
 import '../widgets/sidebar.dart';
 import '../widgets/dashboard_header.dart';
@@ -453,7 +454,7 @@ class _DashboardPageState extends State<DashboardPage> {
         return ClientsPage();
 
       case "machines":
-        return Center(child: Text("Page Machines"));
+        return MachinesPage();
 
       case "analytics":
         return Center(child: Text("Page Analytics"));
