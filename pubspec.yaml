@@ -39,6 +39,8 @@ dependencies:
   google_fonts: ^5.1.0 
   fl_chart: ^1.1.1
   shared_preferences: ^2.2.0
+  image_picker: ^1.0.7
+  geocoding: ^3.0.0
 
 dev_dependencies:
   flutter_test:
