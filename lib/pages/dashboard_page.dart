@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:recycle_app/pages/machines_page.dart';
 import '../models/dashboard_model.dart';
 import '../widgets/sidebar.dart';
@@ -18,6 +20,26 @@ class DashboardPage extends StatefulWidget {
 class _DashboardPageState extends State<DashboardPage> {
   late DashboardPageModel model;
   String selectedPage = "dashboard";
+
+  // --- Fake alerts ---
+  final List<String> alerts = [
+    "Machine 12 hors service",
+    "Niveau de stockage élevé sur Machine 4",
+    "Client 1020 a dépassé sa limite",
+  ];
+
+  // --- Fake machine locations (à changer selon ta BD) ---
+  final List<Map<String, dynamic>> machineLocations = [
+    {"name": "Machine Alger", "lat": 36.7538, "lng": 3.0588},
+    {"name": "Machine Oran", "lat": 35.6911, "lng": -0.6417},
+    {"name": "Machine Constantine", "lat": 36.3650, "lng": 6.6147},
+  ];
+
+  // Filters
+  String? selectedCity;
+  String? selectedMachine;
+  String? selectedObjectType;
+  DateTimeRange? selectedDate;
 
   @override
   void initState() {
@@ -57,6 +79,34 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget buildDashboardContent() {
+    if (selectedPage == "dashboard") {
+      return SafeArea(
+        child: Container(
+          color: const Color(0xFFF8FAFC),
+          width: double.infinity,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildTopBar(),
+                const SizedBox(height: 20),
+                _buildFilters(),
+                const SizedBox(height: 20),
+                _buildStatsCards(),
+                const SizedBox(height: 20),
+                SizedBox(
+                  height: 480,
+                  width: double.infinity,
+                  child: _buildMap(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return SafeArea(
       child: Container(
         color: const Color(0xFFF8FAFC),
@@ -281,6 +331,258 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   // ---------------- WIDGETS ----------------
+  Widget _buildTopBar() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        // Profile
+        Row(
+          children: const [
+            CircleAvatar(
+              backgroundColor: Colors.green,
+              child: Icon(Icons.person, color: Colors.white),
+            ),
+            SizedBox(width: 10),
+            Text("Admin", style: TextStyle(fontSize: 18)),
+          ],
+        ),
+
+        // Notifications
+        Stack(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.notifications, size: 32),
+              onPressed: () => _showAlerts(),
+            ),
+            Positioned(
+              right: 6,
+              top: 6,
+              child: Container(
+                padding: const EdgeInsets.all(5),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  "${alerts.length}",
+                  style:
+                      const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilters() {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            SizedBox(
+              width: 170,
+              child: _dropdownFilter(
+                "Ville",
+                ["Alger", "Oran", "Constantine"],
+                selectedCity,
+                (v) => setState(() => selectedCity = v),
+              ),
+            ),
+            SizedBox(
+              width: 170,
+              child: _dropdownFilter(
+                "Machine",
+                ["M1", "M2", "M3"],
+                selectedMachine,
+                (v) => setState(() => selectedMachine = v),
+              ),
+            ),
+            SizedBox(
+              width: 170,
+              child: _dropdownFilter(
+                "Type",
+                ["Plastique", "Canette", "Verre"],
+                selectedObjectType,
+                (v) => setState(() => selectedObjectType = v),
+              ),
+            ),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.date_range),
+              label: const Text("Période"),
+              onPressed: _pickDate,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _dropdownFilter(
+    String label,
+    List<String> items,
+    String? value,
+    ValueChanged<String?> onChanged,
+  ) {
+    return DropdownButton<String>(
+      hint: Text(label),
+      value: value,
+      isExpanded: true,
+      items: items.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+      onChanged: onChanged,
+    );
+  }
+
+  Widget _buildStatsCards() {
+    return Wrap(
+      spacing: 20,
+      runSpacing: 20,
+      children: [
+        _statCard(Icons.memory, "Machines actives", "12", Colors.green),
+        _statCard(Icons.recycling, "Total recyclé", "180 kg", Colors.blue),
+        _statCard(Icons.euro, "Argent distribué", "120 €", Colors.orange),
+        _statCard(Icons.auto_awesome, "Score IA", "92%", Colors.purple),
+      ],
+    );
+  }
+
+  Widget _statCard(
+    IconData icon,
+    String title,
+    String value,
+    Color color,
+  ) {
+    return Container(
+      width: 220,
+      height: 120,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [color.withOpacity(0.8), color.withOpacity(0.4)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: Colors.white, size: 30),
+            const Spacer(),
+            Text(
+              title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              value,
+              style: const TextStyle(color: Colors.white, fontSize: 22),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMap() {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: SizedBox.expand(
+          child: FlutterMap(
+            options: const MapOptions(
+              initialCenter: LatLng(36.7538, 3.0588), // Alger
+              initialZoom: 6.0,
+            ),
+            children: [
+              TileLayer(
+                urlTemplate:
+                    "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+              ),
+              MarkerLayer(
+                markers: machineLocations.map((machine) {
+                  return Marker(
+                    point: LatLng(
+                      (machine["lat"] as num).toDouble(),
+                      (machine["lng"] as num).toDouble(),
+                    ),
+                    width: 40,
+                    height: 40,
+                    child: const Icon(
+                      Icons.location_on,
+                      size: 40,
+                      color: Colors.red,
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showAlerts() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Alertes"),
+        content: SizedBox(
+          width: 400,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: alerts
+                .map(
+                  (msg) => ListTile(
+                    leading: const Icon(Icons.warning, color: Colors.red),
+                    title: Text(msg),
+                  ),
+                )
+                .toList(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Fermer"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _pickDate() async {
+    final result = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(2020),
+      lastDate: DateTime.now(),
+    );
+
+    if (result != null) {
+      setState(() => selectedDate = result);
+    }
+  }
+
   Widget _buildPremiumCard({required String title, required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(20),
