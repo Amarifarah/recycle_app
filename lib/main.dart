@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:recycle_app/pages/clients_page.dart';
 import '/pages/login_page.dart';
 import '/pages/dashboard_page.dart';
@@ -8,6 +9,9 @@ import '/pages/settings_page.dart';
 import '/pages/analytics_page.dart';
 
 void main() {
+  // Fix for some Windows setups where bundled google_fonts assets are not found.
+  // This lets google_fonts fetch fonts at runtime instead of relying on AssetManifest.json.
+  GoogleFonts.config.allowRuntimeFetching = true;
   runApp(const MyApp());
 }
 

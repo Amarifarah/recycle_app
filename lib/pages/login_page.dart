@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -100,10 +99,10 @@ class _LoginPageState extends State<LoginPage> {
                             const SizedBox(width: 12),
                             Text(
                               'GreenMachine',
-                              style: GoogleFonts.readexPro(
+                              style: const TextStyle(
                                 fontSize: 32,
                                 fontWeight: FontWeight.bold,
-                                color: const Color(0xFF2E7D32),
+                                color: Color(0xFF2E7D32),
                               ),
                             ),
                           ],
@@ -117,19 +116,19 @@ class _LoginPageState extends State<LoginPage> {
                             Text(
                               'Supervision Intelligente',
                               textAlign: TextAlign.center,
-                              style: GoogleFonts.readexPro(
+                              style: const TextStyle(
                                 fontSize: 28,
                                 fontWeight: FontWeight.w600,
-                                color: const Color(0xFF1B5E20),
+                                color: Color(0xFF1B5E20),
                               ),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               'Optimisez vos machines de recyclage avec notre plateforme de monitoring avancée',
                               textAlign: TextAlign.center,
-                              style: GoogleFonts.inter(
+                              style: const TextStyle(
                                 fontSize: 16,
-                                color: const Color(0xFF4A5568),
+                                color: Color(0xFF4A5568),
                                 height: 1.5,
                               ),
                             ),
@@ -173,7 +172,7 @@ class _LoginPageState extends State<LoginPage> {
                                 children: [
                                   Text(
                                     'Surveillance en temps réel',
-                                    style: GoogleFonts.inter(
+                                    style: const TextStyle(
                                       fontSize: 22,
                                       fontWeight: FontWeight.w600,
                                       color: Colors.white,
@@ -182,9 +181,9 @@ class _LoginPageState extends State<LoginPage> {
                                   const SizedBox(height: 4),
                                   Text(
                                     'Contrôlez l\'efficacité de vos équipements',
-                                    style: GoogleFonts.inter(
+                                    style: const TextStyle(
                                       fontSize: 14,
-                                      color: const Color(0xCCFFFFFF),
+                                      color: Color(0xCCFFFFFF),
                                       height: 1.4,
                                     ),
                                   ),
@@ -212,19 +211,19 @@ class _LoginPageState extends State<LoginPage> {
                             children: [
                               Text(
                                 'Connexion',
-                                style: GoogleFonts.readexPro(
+                                style: const TextStyle(
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF1B5E20),
+                                  color: Color(0xFF1B5E20),
                                 ),
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 'Accédez à votre tableau de bord',
                                 textAlign: TextAlign.center,
-                                style: GoogleFonts.inter(
+                                style: const TextStyle(
                                   fontSize: 16,
-                                  color: const Color(0xFF718096),
+                                  color: Color(0xFF718096),
                                 ),
                               ),
                               const SizedBox(height: 24),
