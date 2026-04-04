@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class LoginModel extends ChangeNotifier {
   // Champs contrôleurs
@@ -11,8 +12,9 @@ class LoginModel extends ChangeNotifier {
   bool showPassword = false;
   String? errorMessage;
 
-  // URL de ton backend Flask
-  final String apiUrl = "http://127.0.0.1:5000/login"; // change si besoin
+  // Lien de production Render pour la connexion
+  final String apiUrl = "https://rvm-backend-oaot.onrender.com/user/login"; 
+ 
 
   void togglePassword() {
     showPassword = !showPassword;
@@ -46,25 +48,51 @@ class LoginModel extends ChangeNotifier {
       isLoading = false;
 
       if (response.statusCode == 200) {
-        // Connexion réussie
+        // Connexion réussie, extraction du rôle
+        final data = jsonDecode(response.body);
+        if (data['role'] != null) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('user_role', data['role']);
+        }
+        
         notifyListeners();
         return true;
-      } else if (response.statusCode == 401) {
-        // Identifiants incorrects
-        errorMessage = "Identifiants incorrects.";
+      } else if (response.statusCode == 400) {
+        // Identifiants ou email incorrects selon votre backend
+        final data = jsonDecode(response.body);
+        errorMessage = data['message'] ?? "Identifiants incorrects.";
         notifyListeners();
         return false;
       } else {
-        errorMessage = "Une erreur est survenue.";
+        errorMessage = "Une erreur est survenue (${response.statusCode}).";
         notifyListeners();
         return false;
       }
     } catch (e) {
       isLoading = false;
-      errorMessage = "Erreur de connexion au serveur.";
+      errorMessage = "Erreur de connexion : $e";
       notifyListeners();
       return false;
     }
+  }
+
+  // Ajout d'une méthode pour se déconnecter
+  Future<void> logout() async {
+    try {
+      // Appel HTTP optionnel pour dire au backend de supprimer la session
+      await http.post(
+        Uri.parse(apiUrl.replaceAll("/login", "/logout")),
+        headers: {"Content-Type": "application/json"},
+      );
+    } catch (e) {
+      // Si on n'a pas internet, on force quand même la déconnexion locale
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('user_role');
+    
+    // On notifie l'application du changement
+    notifyListeners();
   }
 
   @override

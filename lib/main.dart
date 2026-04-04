@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:recycle_app/pages/clients_page.dart';
-import '/pages/login_page.dart';
-import '/pages/dashboard_page.dart';
-import '/pages/clients_page.dart';
-import '/pages/settings_page.dart';
-import '/pages/analytics_page.dart';
+import 'pages/login_page.dart';
+import 'pages/dashboard_page.dart';
+import 'pages/settings_page.dart';
+import 'pages/analytics_page.dart';
 import 'providers/machine_provider.dart';
+import 'models/login_model.dart';
 
 void main() {
   runApp(const MyApp());
@@ -20,6 +20,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => MachineProvider()),
+        ChangeNotifierProvider(create: (_) => LoginModel()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

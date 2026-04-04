@@ -1,26 +1,86 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../models/machinedata_model.dart';
+import '../providers/machine_provider.dart';
 
-class AnalyticsPage extends StatelessWidget {
+class AnalyticsPage extends StatefulWidget {
   const AnalyticsPage({super.key});
 
   @override
+  State<AnalyticsPage> createState() => _AnalyticsPageState();
+}
+
+class _AnalyticsPageState extends State<AnalyticsPage> {
+
+  @override
+  void initState() {
+    super.initState();
+    // Charger la data en temps réel au montage de la page
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<MachineProvider>(context, listen: false).fetchMachines();
+    });
+  }
+
+  // Mappage des données dynamiques
+  List<MachineData> _parseMachines(List<Map<String, dynamic>> rawMachines) {
+    List<MachineData> mapped = [];
+    for (var machine in rawMachines) {
+      double plastic = 0.0;
+      double alu = 0.0;
+      double totalFill = 0.0;
+      double totalCap = 0.0;
+      
+      if (machine['recyclingBins'] != null) {
+        for (var bin in machine['recyclingBins']) {
+          double currentFill = (bin['current_fill_kg'] ?? 0).toDouble();
+          double cap = (bin['capacity_kg'] ?? 0).toDouble();
+
+          if (bin['type'] == 'PET') plastic += currentFill;
+          if (bin['type'] == 'ALU') alu += currentFill;
+
+          totalFill += currentFill;
+          totalCap += cap;
+        }
+      }
+
+      double fillLevel = (totalCap > 0) ? (totalFill / totalCap) : 0.0;
+      
+      mapped.add(MachineData(
+        id: machine['machine_id']?.toString() ?? machine['_id']?.toString() ?? "Inconnu",
+        wilaya: machine['city']?.toString() ?? "Inconnu",
+        plasticQty: plastic,
+        aluminumQty: alu,
+        fillLevel: fillLevel,
+      ));
+    }
+    return mapped;
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final List<MachineData> machines = [
-      MachineData(id: "M001", wilaya: "Sidi Bel Abbès", plasticQty: 45.5, aluminumQty: 20.0, fillLevel: 0.85),
-      MachineData(id: "M002", wilaya: "Oran", plasticQty: 30.2, aluminumQty: 15.5, fillLevel: 0.40),
-      MachineData(id: "M003", wilaya: "Alger", plasticQty: 60.8, aluminumQty: 40.2, fillLevel: 0.95),
-    ];
-
-    double totalPlastic = machines.fold(0, (sum, m) => sum + m.plasticQty);
-    double totalAluminum = machines.fold(0, (sum, m) => sum + m.aluminumQty);
-    int fullMachines = machines.where((m) => m.fillLevel > 0.8).length;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC), // Même fond que le dashboard
-      body: CustomScrollView(
+      body: Consumer<MachineProvider>(
+        builder: (context, provider, child) {
+          if (provider.isLoading) {
+            return const Center(
+              child: CircularProgressIndicator(color: Color(0xFF1B5E20))
+            );
+          }
+
+          final List<MachineData> machines = _parseMachines(provider.machines);
+
+          if (machines.isEmpty) {
+            return const Center(child: Text("Aucune machine trouvée sur le backend."));
+          }
+
+          double totalPlastic = machines.fold(0, (sum, m) => sum + m.plasticQty);
+          double totalAluminum = machines.fold(0, (sum, m) => sum + m.aluminumQty);
+          int fullMachines = machines.where((m) => m.fillLevel > 0.8).length;
+
+          return CustomScrollView(
         slivers: [
           _buildAppBar(),
           SliverToBoxAdapter(
@@ -65,7 +125,9 @@ class AnalyticsPage extends StatelessWidget {
               ),
             ),
           ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }

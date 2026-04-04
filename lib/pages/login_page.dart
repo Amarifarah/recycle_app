@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
+import 'package:recycle_app/models/login_model.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -10,35 +12,28 @@ class LoginPage extends StatefulWidget {
 
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
-  bool _passwordVisible = false;
-  bool _showError = false;
 
   @override
   void initState() {
     super.initState();
-    _passwordVisible = false;
   }
 
-  void _login() {
-    setState(() {
-      if (_emailController.text != 'admin@test.com' ||
-          _passwordController.text != '123456') {
-        _showError = true;
-      } else {
-        _showError = false;
-
-        // 👉 Navigation vers le Dashboard
+  void _login() async {
+    final loginModel = context.read<LoginModel>();
+    final success = await loginModel.login();
+    if (success) {
+      if (mounted) {
         Navigator.pushNamed(context, "/dashboard");
       }
-    });
+    }
   }
+
 
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final height = MediaQuery.of(context).size.height;
+    final loginModel = context.watch<LoginModel>();
 
     return Scaffold(
       body: Center(
@@ -231,7 +226,7 @@ class _LoginPageState extends State<LoginPage> {
 
                               // Email
                               TextFormField(
-                                controller: _emailController,
+                                controller: loginModel.emailController,
                                 keyboardType: TextInputType.emailAddress,
                                 decoration: InputDecoration(
                                   labelText: 'Adresse email',
@@ -262,8 +257,8 @@ class _LoginPageState extends State<LoginPage> {
 
                               // Mot de passe
                               TextFormField(
-                                controller: _passwordController,
-                                obscureText: !_passwordVisible,
+                                controller: loginModel.passwordController,
+                                obscureText: !loginModel.showPassword,
                                 decoration: InputDecoration(
                                   labelText: 'Mot de passe',
                                   hintText: 'Votre mot de passe sécurisé',
@@ -273,17 +268,16 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                   suffixIcon: IconButton(
                                     icon: Icon(
-                                      _passwordVisible
+                                      loginModel.showPassword
                                           ? Icons.visibility_outlined
                                           : Icons.visibility_off_outlined,
                                     ),
                                     onPressed: () {
-                                      setState(() {
-                                        _passwordVisible = !_passwordVisible;
-                                      });
+                                      loginModel.togglePassword();
                                     },
                                   ),
                                   filled: true,
+
                                   fillColor: const Color(0xFFF7FAFC),
                                   enabledBorder: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
@@ -308,14 +302,19 @@ class _LoginPageState extends State<LoginPage> {
                                 width: double.infinity,
                                 height: 56,
                                 child: ElevatedButton.icon(
-                                  onPressed: _login,
-                                  icon: const Icon(
-                                    Icons.login_rounded,
-                                    size: 20,
-                                  ),
-                                  label: const Text(
-                                    'Se connecter',
-                                    style: TextStyle(
+                                  onPressed: loginModel.isLoading ? null : _login,
+                                  icon: loginModel.isLoading 
+                                    ? const SizedBox(
+                                        width: 20, height: 20, 
+                                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                                      )
+                                    : const Icon(
+                                        Icons.login_rounded,
+                                        size: 20,
+                                      ),
+                                  label: Text(
+                                    loginModel.isLoading ? 'Connexion...' : 'Se connecter',
+                                    style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -340,7 +339,7 @@ class _LoginPageState extends State<LoginPage> {
                               ),
 
                               // Message d'erreur
-                              if (_showError)
+                              if (loginModel.errorMessage != null)
                                 Container(
                                   width: double.infinity,
                                   padding: const EdgeInsets.all(12),
@@ -354,16 +353,19 @@ class _LoginPageState extends State<LoginPage> {
                                   ),
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
-                                    children: const [
-                                      Icon(
+                                    children: [
+                                      const Icon(
                                         Icons.error_outline_rounded,
                                         color: Color(0xFFE53E3E),
                                       ),
-                                      SizedBox(width: 8),
-                                      Text(
-                                        'Identifiants incorrects. Veuillez réessayer.',
-                                        style: TextStyle(
-                                          color: Color(0xFFE53E3E),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          loginModel.errorMessage!,
+                                          style: const TextStyle(
+                                            color: Color(0xFFE53E3E),
+                                          ),
+                                          textAlign: TextAlign.center,
                                         ),
                                       ),
                                     ],

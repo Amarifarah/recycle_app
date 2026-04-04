@@ -8,6 +8,8 @@ import 'settings_page.dart';
 import 'analytics_page.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:provider/provider.dart';
+import '../models/login_model.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -40,10 +42,19 @@ class _DashboardPageState extends State<DashboardPage> {
           // Sidebar
           SideBar(
             selectedPage: selectedPage,
-            onItemSelected: (page) {
-              setState(() {
-                selectedPage = page;
-              });
+            onItemSelected: (page) async {
+              if (page == 'logout') {
+                // Déconnexion complète
+                await Provider.of<LoginModel>(context, listen: false).logout();
+                if (mounted) {
+                  // Retour vers la page de login
+                  Navigator.pushReplacementNamed(context, "/login");
+                }
+              } else {
+                setState(() {
+                  selectedPage = page;
+                });
+              }
             },
           ),
           // Contenu
