@@ -11,6 +11,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../models/login_model.dart';
 import '../providers/settings_provider.dart';
+import '../providers/machine_provider.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -55,7 +56,7 @@ class _DashboardPageState extends State<DashboardPage> {
   Widget getPage() {
     switch (selectedPage) {
       case "dashboard":
-        return const DashboardHome(); // separate widget, NOT DashboardPage()
+        return DashboardHome(key: UniqueKey()); // Force refresh when switching tabs
 
       case "clients":
         return ClientsPage();
@@ -92,6 +93,7 @@ class _DashboardHomeState extends State<DashboardHome> {
     // Appeler le fetch au chargement
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<DashboardPageModel>(context, listen: false).fetchStats();
+      Provider.of<MachineProvider>(context, listen: false).fetchMachines();
     });
   }
 
@@ -255,44 +257,51 @@ class _DashboardHomeState extends State<DashboardHome> {
   Widget _buildMapSection() {
     return SizedBox(
       height: 545,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: FlutterMap(
-          options: MapOptions(
-            initialCenter: LatLng(28.0339, 1.6596), // Algérie
-            initialZoom: 5,
-          ),
-          children: [
-            TileLayer(
-              urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-              userAgentPackageName:
-                  'com.example.recycleapp', // Replace with your app's package name
+      child: Consumer<MachineProvider>(
+        builder: (context, provider, child) {
+          final machines = provider.machines;
+          
+          return FlutterMap(
+            options: MapOptions(
+              initialCenter: machines.isNotEmpty 
+                  ? LatLng(
+                      double.tryParse(machines[0]['latitude']?.toString() ?? '28.0339') ?? 28.0339, 
+                      double.tryParse(machines[0]['longitude']?.toString() ?? '1.6596') ?? 1.6596
+                    )
+                  : LatLng(28.0339, 1.6596), // Algérie par défaut
+              initialZoom: machines.isNotEmpty ? 6 : 5,
             ),
-            // 📍 MARKERS
-            MarkerLayer(
-              markers: [
-                Marker(
-                  point: LatLng(36.7538, 3.0588), // Alger
-                  width: 40,
-                  height: 40,
-                  child: const Icon(Icons.location_on, color: Colors.red),
-                ),
-                Marker(
-                  point: LatLng(35.6911, -0.6417), // Oran
-                  width: 40,
-                  height: 40,
-                  child: const Icon(Icons.location_on, color: Colors.blue),
-                ),
-                Marker(
-                  point: LatLng(34.8828, -1.3167), // Tlemcen
-                  width: 40,
-                  height: 40,
-                  child: const Icon(Icons.location_on, color: Colors.green),
-                ),
-              ],
-            ),
-          ],
-        ),
+            children: [
+              TileLayer(
+                urlTemplate: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                userAgentPackageName: 'com.example.recycleapp',
+              ),
+              // 📍 MARKERS DYNAMIQUES
+              MarkerLayer(
+                markers: machines.map((m) {
+                  final double lat = double.tryParse(m['latitude']?.toString() ?? '0') ?? 0;
+                  final double lon = double.tryParse(m['longitude']?.toString() ?? '0') ?? 0;
+                  final String rawStatus = (m['status'] ?? 'actif').toString().toLowerCase().trim();
+                  
+                  // Déterminer la couleur selon le statut (Plus robuste)
+                  Color markerColor = Colors.green; // Par défaut Online (actif)
+                  if (rawStatus.contains('panne') || rawStatus.contains('maintenance')) {
+                    markerColor = Colors.red;
+                  } else if (rawStatus.contains('hors ligne') || rawStatus.contains('offline') || rawStatus.contains('inactif')) {
+                    markerColor = Colors.orange;
+                  }
+
+                  return Marker(
+                    point: LatLng(lat, lon),
+                    width: 40,
+                    height: 40,
+                    child: Icon(Icons.location_on, color: markerColor, size: 30),
+                  );
+                }).toList(),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
