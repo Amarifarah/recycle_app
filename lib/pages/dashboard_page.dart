@@ -12,6 +12,8 @@ import 'package:provider/provider.dart';
 import '../models/login_model.dart';
 import '../providers/settings_provider.dart';
 import '../providers/machine_provider.dart';
+import '../providers/notification_provider.dart';
+import 'package:intl/intl.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -94,6 +96,7 @@ class _DashboardHomeState extends State<DashboardHome> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<DashboardPageModel>(context, listen: false).fetchStats();
       Provider.of<MachineProvider>(context, listen: false).fetchMachines();
+      Provider.of<NotificationProvider>(context, listen: false).fetchNotifications();
     });
   }
 
@@ -141,63 +144,183 @@ class _DashboardHomeState extends State<DashboardHome> {
           ),
 
           // 🔔 Notification button
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications),
-                onPressed: () {
-                  _showNotifications(context, settings);
-                },
-              ),
-
-              // 🔴 badge
-              Positioned(
-                right: 6,
-                top: 6,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
+          Consumer<NotificationProvider>(
+            builder: (context, notifProvider, child) {
+              return Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications),
+                    onPressed: () {
+                      _showNotifications(context, settings);
+                    },
                   ),
-                ),
-              ),
-            ],
+                  if (notifProvider.unreadCount > 0)
+                    Positioned(
+                      right: 4,
+                      top: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Text(
+                          '${notifProvider.unreadCount}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
           ),
         ],
       ),
     );
   }
 
-  // 🔔 POPUP NOTIFICATIONS
+  String _formatDate(dynamic dateStr) {
+    if (dateStr == null) return "N/A";
+    try {
+      DateTime dt = DateTime.parse(dateStr.toString());
+      return DateFormat('dd/MM/yyyy HH:mm').format(dt);
+    } catch (_) {
+      return dateStr.toString();
+    }
+  }
+
+  // 🔔 POPUP NOTIFICATIONS (DYNAMIQUE)
   void _showNotifications(BuildContext context, SettingsProvider settings) {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          backgroundColor: Theme.of(context).cardColor,
-          title: const Text("Notifications"),
-          content: SizedBox(
-            width: 300,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                ListTile(
-                  leading: Icon(Icons.check_circle, color: Colors.green),
-                  title: Text("Nouvelle collecte effectuée"),
-                ),
-                ListTile(
-                  leading: Icon(Icons.warning, color: Colors.orange),
-                  title: Text("Machine pleine à Alger"),
-                ),
-                ListTile(
-                  leading: Icon(Icons.info, color: Colors.blue),
-                  title: Text("Nouveau client ajouté"),
+        return Consumer<NotificationProvider>(
+          builder: (context, provider, child) {
+            return AlertDialog(
+              backgroundColor: Theme.of(context).cardColor,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                   const Text("Notifications"),
+                   Row(
+                     children: [
+                       if (provider.isLoading)
+                        const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                       IconButton(
+                         icon: const Icon(Icons.refresh, size: 20),
+                         onPressed: () => provider.fetchNotifications(),
+                       ),
+                     ],
+                   ),
+                ],
+              ),
+              content: SizedBox(
+                width: 400,
+                height: 450,
+                child: provider.notifications.isEmpty
+                  ? Center(child: Text("Aucune notification", style: GoogleFonts.poppins(color: Colors.grey)))
+                  : ListView.separated(
+                      itemCount: provider.notifications.length,
+                      separatorBuilder: (context, index) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final notif = provider.notifications[index];
+                        final String id = notif['_id'].toString();
+                        final String type = (notif['type'] ?? 'info').toString();
+                        final String message = notif['message'] ?? '...';
+                        final String status = notif['status'] ?? 'envoyée';
+                        final bool isRead = status == 'lue';
+                        
+                        // Icône selon le type
+                        IconData leadingIcon = Icons.notifications;
+                        Color iconColor = Colors.blue;
+                        if (type.contains('panne')) {
+                          leadingIcon = Icons.error_outline;
+                          iconColor = Colors.red;
+                        } else if (type.contains('remplissage')) {
+                          leadingIcon = Icons.battery_charging_full;
+                          iconColor = Colors.orange;
+                        }
+
+                        return Opacity(
+                          opacity: isRead ? 0.6 : 1.0,
+                          child: ListTile(
+                            contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                            leading: CircleAvatar(
+                              backgroundColor: iconColor.withOpacity(0.1),
+                              child: Icon(leadingIcon, color: isRead ? Colors.grey : iconColor, size: 20),
+                            ),
+                            title: Row(
+                              children: [
+                                Text(type.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                                if (isRead) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                                    child: const Text("TRAITÉ", style: TextStyle(color: Colors.green, fontSize: 9, fontWeight: FontWeight.bold)),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 4),
+                                Text(message, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13, fontWeight: isRead ? FontWeight.normal : FontWeight.w500)),
+                                const SizedBox(height: 6),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.access_time, size: 10, color: Colors.grey),
+                                    const SizedBox(width: 4),
+                                    Text("Alert: ${_formatDate(notif['created_at'])}", style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                                  ],
+                                ),
+                                if (isRead && notif['updated_at'] != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Row(
+                                      children: [
+                                        const Icon(Icons.check_circle, size: 10, color: Colors.green),
+                                        const SizedBox(width: 4),
+                                        Text("Traité: ${_formatDate(notif['updated_at'])}", style: const TextStyle(fontSize: 10, color: Colors.green)),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            trailing: isRead 
+                              ? const Icon(Icons.done_all, color: Colors.green, size: 20)
+                              : Tooltip(
+                                  message: "Marquer comme traité",
+                                  child: IconButton(
+                                    icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+                                    onPressed: () => provider.markAsRead(id),
+                                  ),
+                                ),
+                          ),
+                        );
+                      },
+                    ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Fermer"),
                 ),
               ],
-            ),
-          ),
+            );
+          },
         );
       },
     );

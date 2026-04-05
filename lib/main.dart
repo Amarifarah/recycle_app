@@ -6,6 +6,7 @@ import 'pages/dashboard_page.dart';
 import 'pages/settings_page.dart';
 import 'pages/analytics_page.dart';
 import 'providers/machine_provider.dart';
+import 'providers/notification_provider.dart';
 import 'models/login_model.dart';
 import 'models/dashboard_model.dart';
 import 'providers/settings_provider.dart'; // Import SettingsProvider
@@ -22,6 +23,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => MachineProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
         ChangeNotifierProvider(create: (_) => LoginModel()),
         ChangeNotifierProvider(create: (_) => DashboardPageModel()),
         ChangeNotifierProvider(create: (_) => SettingsProvider()), // Register SettingsProvider
