@@ -80,10 +80,10 @@ class DashboardPageModel extends ChangeNotifier {
       final response = await http.get(Uri.parse(statsUrl));
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        // Adaptation selon la structure probable du backend
-        totalMachines = data['total_machines'] ?? 0;
-        totalPlastic = (data['total_plastic'] ?? 0).toDouble();
-        totalAluminum = (data['total_aluminum'] ?? 0).toDouble();
+        // Adaptation selon la structure réelle du backend
+        totalMachines = data['machines']?['value'] ?? 0;
+        totalPlastic = (data['plastique']?['value'] ?? 0).toDouble();
+        totalAluminum = (data['aluminium']?['value'] ?? 0).toDouble();
         
         // Optionnel: Mettre à jour aussi les champs existants
         machinesActives = totalMachines;
