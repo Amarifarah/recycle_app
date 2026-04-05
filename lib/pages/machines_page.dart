@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:geocoding/geocoding.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/machine_provider.dart';
 import '../providers/settings_provider.dart';
 
@@ -193,16 +197,95 @@ class _MachinesPageState extends State<MachinesPage> {
     );
   }
 
+  // --- FONCTION GÉOCODAGE UNIVERSELLE ---
+  Future<Map<String, String>> _getLocationData(double lat, double lng) async {
+    // 1. Tenter la méthode native (Geocoding de l'appareil)
+    try {
+      List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
+      if (placemarks.isNotEmpty) {
+        Placemark place = placemarks[0];
+        String wilaya = place.administrativeArea ?? place.subAdministrativeArea ?? place.locality ?? "";
+        String street = place.street ?? "";
+        String subLocality = place.subLocality ?? "";
+        String locality = place.locality ?? "";
+        String address = "$street $subLocality $locality".trim();
+        if (wilaya.isNotEmpty && address.isNotEmpty) {
+          return {"city": wilaya, "address": address};
+        }
+      }
+    } catch (e) {
+      print("DEBUG: Geocoding natif ignoré, passage au fallback Web.");
+    }
+
+    // 2. Fallback Universel (OpenStreetMap Nominatim) - Fonctionne partout
+    try {
+      final response = await http.get(
+        Uri.parse('https://nominatim.openstreetmap.org/reverse?format=json&lat=$lat&lon=$lng&addressdetails=1&accept-language=fr'),
+        headers: {'User-Agent': 'RecycleApp/1.0'},
+      );
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final addr = data['address'];
+        if (addr != null) {
+          // Wilaya: en Algérie, souvent dans province, state ou county
+          String wilaya = addr['province'] ?? addr['state'] ?? addr['county'] ?? addr['city'] ?? "Inconnu";
+          // Adresse: display_name est très précis
+          String displayName = data['display_name'] ?? "";
+          String address = displayName;
+          
+          // Petit nettoyage pour ne pas avoir une adresse de 3 lignes
+          if (displayName.contains(",")) {
+            List<String> parts = displayName.split(",");
+            if (parts.length > 3) {
+               address = "${parts[0].trim()}, ${parts[1].trim()}, ${parts[2].trim()}";
+            }
+          }
+          return {"city": wilaya, "address": address};
+        }
+      }
+    } catch (e) {
+      print("Erreur Fallback OSM: $e");
+    }
+
+    return {"city": "Inconnu", "address": "N/A"};
+  }
+
+  Future<void> _launchURL(String? urlString) async {
+    if (urlString == null || urlString.isEmpty) return;
+    try {
+      final Uri url = Uri.parse(urlString);
+      if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+        throw 'Could not launch $urlString';
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Impossible d'ouvrir le lien: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   Future<void> _handleSave(StateSetter setModalState) async {
     if (idController.text.isEmpty || nameController.text.isEmpty) return;
+    
+    // On récupère les coordonnées
+    double lat = double.tryParse(latController.text) ?? 0.0;
+    double lng = double.tryParse(lonController.text) ?? 0.0;
+
+    // Récupérer les données de localisation réelles
+    Map<String, String> locationData = await _getLocationData(lat, lng);
+
     final String serverType = (machineType ?? "petit").toLowerCase();
     final String serverLocation = (machineLocation ?? "institut").toLowerCase();
 
     final newMachine = {
       "machine_id": idController.text,
       "name": nameController.text,
-      "latitude": double.tryParse(latController.text) ?? 0.0,
-      "longitude": double.tryParse(lonController.text) ?? 0.0,
+      "latitude": lat,
+      "longitude": lng,
+      "city": locationData['city'],
+      "address": locationData['address'],
       "type": serverType,
       "location_type": serverLocation,
       "status": "actif",
@@ -286,7 +369,13 @@ class _MachinesPageState extends State<MachinesPage> {
                           _detailItem(Icons.location_on_outlined, "Longitude", machine['longitude']?.toString() ?? '0.0', isDark),
                           _detailItem(Icons.aspect_ratio_outlined, "Type", machine['type']?.toString().toUpperCase() ?? 'N/A', isDark),
                           _detailItem(Icons.business_outlined, "Lieu", (machine['location_type']?.toString().replaceAll("_", " ") ?? 'N/A').toUpperCase(), isDark),
+                          _detailItem(Icons.map_outlined, "Wilaya", machine['city']?.toString() ?? 'Inconnu', isDark),
+                          _detailItem(Icons.location_on_outlined, "Adresse", machine['address']?.toString() ?? 'N/A', isDark),
                           _detailItem(Icons.info_outline, "Statut", _mapBackendToUI(currentBackendStatus).toUpperCase(), isDark),
+                          
+                          // --- NOUVEAU : LIEN PHOTO ---
+                          _detailPhotoLink(machine['photo_url']?.toString(), isDark),
+
                           _detailItem(Icons.auto_awesome_outlined, "Précision AI", "${(double.tryParse(machine['ai_accuracy']?.toString() ?? '0') ?? 0).toStringAsFixed(1)}%", isDark),
                           _detailItem(Icons.calendar_today_outlined, "Créé le", _formatDate(machine['created_at']), isDark),
                           _detailItem(Icons.history_outlined, "Modifié le", _formatDate(machine['updated_at']), isDark),
@@ -347,8 +436,6 @@ class _MachinesPageState extends State<MachinesPage> {
     );
   }
 
-
-
   Widget _detailItem(IconData icon, String label, String value, bool isDark) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -363,6 +450,43 @@ class _MachinesPageState extends State<MachinesPage> {
             ],
           ),
           Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : Colors.black)),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailPhotoLink(String? url, bool isDark) {
+    // Lien commun pour toutes les machines fourni par l'utilisateur
+    final String commonDriveLink = "https://drive.google.com/drive/folders/1JXPNgvA3AEIoSYj5CqVkeVlgIOkUv5s5?usp=drive_link";
+    
+    // On utilise le lien en base s'il existe, sinon le lien commun
+    String finalUrl = (url != null && url.isNotEmpty) ? url : commonDriveLink;
+    String displayUrl = "Ouvrir Drive"; // Texte plus court pour l'affichage
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.folder_shared_outlined, size: 16, color: isDark ? const Color(0xFF10B981) : darkGreen),
+              const SizedBox(width: 8),
+              Text("Archive Photos", style: TextStyle(color: isDark ? Colors.white70 : Colors.blueGrey, fontSize: 13)),
+            ],
+          ),
+          InkWell(
+            onTap: () => _launchURL(finalUrl),
+            child: Text(
+              displayUrl, 
+              style: TextStyle(
+                color: Colors.blue, 
+                fontSize: 13, 
+                fontWeight: FontWeight.bold,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -490,7 +614,7 @@ class _MachinesPageState extends State<MachinesPage> {
                       child: ListTile(
                         leading: CircleAvatar(backgroundColor: _getStatusColor(mStatus).withOpacity(0.1), child: Icon(Icons.precision_manufacturing, color: _getStatusColor(mStatus))),
                         title: Text("$mName", style: TextStyle(fontWeight: FontWeight.bold, color: isDark?Colors.white:Colors.black)),
-                        subtitle: Text("ID: $mId", style: TextStyle(color: isDark?Colors.white60:Colors.grey)),
+                        subtitle: Text("ID: $mId • ${m['city'] ?? 'Wilaya'}", style: TextStyle(color: isDark?Colors.white60:Colors.grey, fontSize: 12)),
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
