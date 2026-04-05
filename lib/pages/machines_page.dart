@@ -80,6 +80,7 @@ class _MachinesPageState extends State<MachinesPage> {
   }
 
   void _showAddMachineDialog() {
+    _clearInputs(); // S'assurer que le formulaire est vide à chaque ouverture
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -113,9 +114,23 @@ class _MachinesPageState extends State<MachinesPage> {
                       Expanded(child: _buildField(lonController, "Longitude", Icons.location_on, isDark)),
                     ],
                   ),
-                  _buildDropdown("Type de Machine", Icons.aspect_ratio, machineType, typeOptions, (v) => setModalState(() => machineType = v), isDark),
+                  _buildDropdown(
+                    "Type de Machine", 
+                    Icons.aspect_ratio, 
+                    machineType, 
+                    typeOptions, 
+                    (v) => setModalState(() => machineType = v), 
+                    isDark
+                  ),
                   const SizedBox(height: 10),
-                  _buildDropdown("Emplacement", Icons.location_on, machineLocation, locationOptions, (v) => setModalState(() => machineLocation = v), isDark),
+                  _buildDropdown(
+                    "Emplacement", 
+                    Icons.location_on, 
+                    machineLocation, 
+                    locationOptions, 
+                    (v) => setModalState(() => machineLocation = v), 
+                    isDark
+                  ),
                   const SizedBox(height: 35),
                   SizedBox(
                     width: double.infinity,
@@ -181,7 +196,7 @@ class _MachinesPageState extends State<MachinesPage> {
   Future<void> _handleSave(StateSetter setModalState) async {
     if (idController.text.isEmpty || nameController.text.isEmpty) return;
     final String serverType = (machineType ?? "petit").toLowerCase();
-    final String serverLocation = (machineLocation ?? "institut").toLowerCase().replaceAll(" ", "_");
+    final String serverLocation = (machineLocation ?? "institut").toLowerCase();
 
     final newMachine = {
       "machine_id": idController.text,
@@ -270,7 +285,7 @@ class _MachinesPageState extends State<MachinesPage> {
                           _detailItem(Icons.location_on_outlined, "Latitude", machine['latitude']?.toString() ?? '0.0', isDark),
                           _detailItem(Icons.location_on_outlined, "Longitude", machine['longitude']?.toString() ?? '0.0', isDark),
                           _detailItem(Icons.aspect_ratio_outlined, "Type", machine['type']?.toString().toUpperCase() ?? 'N/A', isDark),
-                          _detailItem(Icons.business_outlined, "Lieu", machine['location_type']?.toString().replaceAll("_", " ") ?? 'N/A', isDark),
+                          _detailItem(Icons.business_outlined, "Lieu", (machine['location_type']?.toString().replaceAll("_", " ") ?? 'N/A').toUpperCase(), isDark),
                           _detailItem(Icons.info_outline, "Statut", _mapBackendToUI(currentBackendStatus).toUpperCase(), isDark),
                           _detailItem(Icons.auto_awesome_outlined, "Précision AI", "${(double.tryParse(machine['ai_accuracy']?.toString() ?? '0') ?? 0).toStringAsFixed(1)}%", isDark),
                           _detailItem(Icons.calendar_today_outlined, "Créé le", _formatDate(machine['created_at']), isDark),
