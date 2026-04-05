@@ -13,8 +13,7 @@ class LoginModel extends ChangeNotifier {
   String? errorMessage;
 
   // Lien de production Render pour la connexion
-  final String apiUrl = "https://rvm-backend-oaot.onrender.com/user/login"; 
- 
+  final String apiUrl = "https://rvm-backend-oaot.onrender.com/user/login";
 
   void togglePassword() {
     showPassword = !showPassword;
@@ -39,22 +38,41 @@ class LoginModel extends ChangeNotifier {
       final response = await http.post(
         Uri.parse(apiUrl),
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          "email": email,
-          "password": password,
-        }),
+        body: jsonEncode({"email": email, "password": password}),
       );
 
       isLoading = false;
 
       if (response.statusCode == 200) {
-        // Connexion réussie, extraction du rôle
         final data = jsonDecode(response.body);
-        if (data['role'] != null) {
-          final prefs = await SharedPreferences.getInstance();
-          await prefs.setString('user_role', data['role']);
-        }
+        print("DEBUG LOGIN RESPONSE: ${response.body}"); // AFFICHE LA RÉPONSE POUR DÉBOGUER
+
+        final prefs = await SharedPreferences.getInstance();
         
+        // Sauvegarde de l'email
+        await prefs.setString('user_email', email);
+
+        if (data != null) {
+          // Récupération du rôle
+          final role = data['role'] ?? (data['user'] != null ? data['user']['role'] : null);
+          if (role != null) {
+            await prefs.setString('user_role', role);
+          }
+
+          // Recherche de l'ID utilisateur (très robuste)
+          dynamic userId = data['_id'] ?? data['id'] ?? data['userId'];
+          if (userId == null && data['user'] != null) {
+            userId = data['user']['_id'] ?? data['user']['id'] ?? data['user']['userId'];
+          }
+
+          if (userId != null) {
+            print("USER ID TROUVÉ ET SAUVEGARDÉ: $userId");
+            await prefs.setString('user_id', userId.toString());
+          } else {
+            print("ATTENTION: Aucun ID utilisateur trouvé dans la réponse JSON.");
+          }
+        }
+
         notifyListeners();
         return true;
       } else if (response.statusCode == 400) {
@@ -90,7 +108,9 @@ class LoginModel extends ChangeNotifier {
 
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('user_role');
-    
+    await prefs.remove('user_email');
+    await prefs.remove('user_id');
+
     // On notifie l'application du changement
     notifyListeners();
   }

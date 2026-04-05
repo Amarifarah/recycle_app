@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class DashboardPageModel extends ChangeNotifier {
   /// ---------------- STATE FIELDS ----------------
@@ -6,11 +8,23 @@ class DashboardPageModel extends ChangeNotifier {
   // Choice pour filtrer par type de machine ou objet
   String? selectedChoice;
 
-  // Statistiques dynamiques
+  // Statistiques dynamiques (Backend)
+  double totalAluminum = 0.0;
+  double totalPlastic = 0.0;
+  int totalMachines = 0;
+  
+  bool isLoading = false;
+  String? error;
+
+  // Statistiques dynamiques (Legacy/Simulé)
   int bouteillesRecyclees = 2847;
   int machinesActives = 24;
   int alertesEnCours = 3;
 
+  final String statsUrl = "https://rvm-backend-oaot.onrender.com/machine/stats";
+
+  // ... (rest of maintenance and transactions) ...
+  
   // Transactions simulées
   List<Map<String, dynamic>> transactions = [
     {
@@ -56,6 +70,33 @@ class DashboardPageModel extends ChangeNotifier {
   List<int> transactionsParMois = [120, 150, 130, 170, 200, 180];
 
   /// ---------------- METHODS ----------------
+
+  Future<void> fetchStats() async {
+    isLoading = true;
+    error = null;
+    notifyListeners();
+
+    try {
+      final response = await http.get(Uri.parse(statsUrl));
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        // Adaptation selon la structure probable du backend
+        totalMachines = data['total_machines'] ?? 0;
+        totalPlastic = (data['total_plastic'] ?? 0).toDouble();
+        totalAluminum = (data['total_aluminum'] ?? 0).toDouble();
+        
+        // Optionnel: Mettre à jour aussi les champs existants
+        machinesActives = totalMachines;
+      } else {
+        error = "Erreur: ${response.statusCode}";
+      }
+    } catch (e) {
+      error = "Erreur de connexion : $e";
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
 
   void updateChoice(String choice) {
     selectedChoice = choice;

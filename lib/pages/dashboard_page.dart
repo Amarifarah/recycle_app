@@ -10,6 +10,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../models/login_model.dart';
+import '../providers/settings_provider.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -19,20 +20,7 @@ class DashboardPage extends StatefulWidget {
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  late DashboardPageModel model;
   String selectedPage = "dashboard";
-
-  @override
-  void initState() {
-    super.initState();
-    model = DashboardPageModel();
-  }
-
-  @override
-  void dispose() {
-    model.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +61,7 @@ class _DashboardPageState extends State<DashboardPage> {
         return ClientsPage();
 
       case "machines":
-        return MachinesPage();
+        return const MachinesPage();
 
       case "analytics":
         return AnalyticsPage();
@@ -82,10 +70,10 @@ class _DashboardPageState extends State<DashboardPage> {
         return SettingsPage();
 
       case "logout":
-        return Center(child: Text("Logout"));
+        return const Center(child: Text("Logout"));
 
       default:
-        return Center(child: Text("Page not found"));
+        return const Center(child: Text("Page not found"));
     }
   }
 }
@@ -99,10 +87,20 @@ class DashboardHome extends StatefulWidget {
 
 class _DashboardHomeState extends State<DashboardHome> {
   @override
+  void initState() {
+    super.initState();
+    // Appeler le fetch au chargement
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<DashboardPageModel>(context, listen: false).fetchStats();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
     return Column(
       children: [
-        _buildHeader(),
+        _buildHeader(context, settings),
 
         Expanded(
           child: SingleChildScrollView(
@@ -110,7 +108,7 @@ class _DashboardHomeState extends State<DashboardHome> {
             child: Column(
               children: [
                 const SizedBox(height: 20),
-                _buildStatsRow(),
+                _buildStatsRow(context, settings),
                 const SizedBox(height: 20),
                 _buildMapSection(),
               ],
@@ -122,18 +120,18 @@ class _DashboardHomeState extends State<DashboardHome> {
   }
 
   // 🔔 HEADER
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context, SettingsProvider settings) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4)],
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            "Dashboard",
+            settings.translate('dashboard'),
             style: GoogleFonts.outfit(
               fontSize: 20,
               fontWeight: FontWeight.w600,
@@ -146,7 +144,7 @@ class _DashboardHomeState extends State<DashboardHome> {
               IconButton(
                 icon: const Icon(Icons.notifications),
                 onPressed: () {
-                  _showNotifications();
+                  _showNotifications(context, settings);
                 },
               ),
 
@@ -171,11 +169,12 @@ class _DashboardHomeState extends State<DashboardHome> {
   }
 
   // 🔔 POPUP NOTIFICATIONS
-  void _showNotifications() {
+  void _showNotifications(BuildContext context, SettingsProvider settings) {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
+          backgroundColor: Theme.of(context).cardColor,
           title: const Text("Notifications"),
           content: SizedBox(
             width: 300,
@@ -202,33 +201,49 @@ class _DashboardHomeState extends State<DashboardHome> {
     );
   }
 
-  Widget _buildStatsRow() {
+  Widget _buildStatsRow(BuildContext context, SettingsProvider settings) {
+    final model = Provider.of<DashboardPageModel>(context);
+
+    if (model.isLoading && model.totalMachines == 0) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _smallCard("Aluminium", "kg", Icons.recycling),
-        _smallCard("Plastique", "DA", Icons.attach_money),
-        _smallCard("12", "Machines", Icons.memory),
+        _smallCard(
+          context,
+          "${model.totalAluminum.toStringAsFixed(1)}",
+          settings.translate('aluminum') + " (kg)",
+          Icons.recycling,
+        ),
+        _smallCard(
+          context,
+          "${model.totalPlastic.toStringAsFixed(1)}",
+          settings.translate('plastic') + " (kg)",
+          Icons.recycling,
+        ),
+        _smallCard(context, "${model.totalMachines}", settings.translate('machines'), Icons.point_of_sale),
       ],
     );
   }
 
-  Widget _smallCard(String value, String label, IconData icon) {
+  Widget _smallCard(BuildContext context, String value, String label, IconData icon) {
     return Expanded(
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 4),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(12),
-          boxShadow: [BoxShadow(color: Colors.grey.shade200, blurRadius: 5)],
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 5)],
         ),
         child: Column(
           children: [
-            Icon(icon, size: 20),
+            Icon(icon, size: 20, color: Colors.green),
             const SizedBox(height: 6),
             Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-            Text(label, style: const TextStyle(fontSize: 12)),
+            Text(label, style: const TextStyle(fontSize: 10, overflow: TextOverflow.ellipsis)),
           ],
         ),
       ),

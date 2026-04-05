@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../providers/machine_provider.dart';
+import '../providers/settings_provider.dart';
 
 class MachinesPage extends StatefulWidget {
   const MachinesPage({super.key});
@@ -11,830 +13,492 @@ class MachinesPage extends StatefulWidget {
 }
 
 class _MachinesPageState extends State<MachinesPage> {
-  final Color darkGreen = const Color(0xFF1E591E);
+  final Color darkGreen = const Color(0xFF064E3B); 
 
-  List<Map<String, dynamic>> machines = [
-    {
-      "id": "M001",
-      "name": "RM-Alpha",
-      "wilaya": "Alger",
-      "capacity": "500",
-      "types": ["Plastique", "Aluminium"],
-      "status": "online",
-      "modelAccuracy": 0.94,
-      "bacsInfo": {
-        "Plastique": {"fillLevel": 0.85, "lastEmptied": "Aujourd'hui, 08:30"},
-        "Aluminium": {"fillLevel": 0.20, "lastEmptied": "Hier, 14:15"},
-      },
-    },
-    {
-      "id": "M002",
-      "name": "RM-Beta",
-      "wilaya": "Oran",
-      "capacity": "800",
-      "types": ["Carton", "Verre"],
-      "status": "offline",
-      "modelAccuracy": 0.88,
-      "bacsInfo": {
-        "Carton": {"fillLevel": 0.10, "lastEmptied": "Aujourd'hui, 06:00"},
-        "Verre": {"fillLevel": 0.05, "lastEmptied": "Hier, 18:45"},
-      },
-    },
-    {
-      "id": "M003",
-      "name": "RM-Gamma",
-      "wilaya": "Annaba",
-      "capacity": "1000",
-      "types": ["Plastique", "Carton", "Aluminium"],
-      "status": "maintenance",
-      "modelAccuracy": 0.0,
-      "bacsInfo": {
-        "Plastique": {"fillLevel": 0.50, "lastEmptied": "Il y a 2 jours"},
-        "Carton": {"fillLevel": 0.95, "lastEmptied": "Il y a 3 jours"},
-        "Aluminium": {"fillLevel": 0.80, "lastEmptied": "Il y a 2 jours"},
-      },
-    },
-  ];
   String searchQuery = "";
-  String statusFilter = "Tous"; // New status filter
+  String statusFilter = "Tous";
 
-  // Variables d'erreurs
-  String? idError,
-      nameError,
-      typeError,
-      wilayaError,
-      capacityError,
-      accuracyError,
-      latError,
-      lonError,
-      locationError,
-      sizeError;
-  final List<String> typeOptions = [
-    "Aluminium",
-    "Verre",
-    "Carton",
-    "Plastique",
-  ];
-  List<String> selectedTypes = [];
-  String? machineLocation;
-  String? machineSize;
-
-  final List<String> locationOptions = [
-    "Institut",
-    "Restaurant",
-    "Centre commercial",
-    "Espace public",
-    "Usine",
-  ];
-
-  final List<String> sizeOptions = ["Petit", "Grand"];
-
-  final TextEditingController nameController = TextEditingController();
   final TextEditingController idController = TextEditingController();
+  final TextEditingController nameController = TextEditingController();
   final TextEditingController latController = TextEditingController();
   final TextEditingController lonController = TextEditingController();
+  String? machineType;
+  String? machineLocation;
+
+  final List<String> typeOptions = ["Petit", "Grand"];
+  final List<String> locationOptions = ["Institut", "Restaurant", "Centre commercial", "Espace public", "Usine"];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<MachineProvider>(
-        context,
-        listen: false,
-      ).setInitialMachines(machines);
+      Provider.of<MachineProvider>(context, listen: false).fetchMachines();
     });
   }
 
-  // --- DIALOGUE DE CONFIRMATION PERSONNALISÉ ---
-  void _showDeleteDialog(int index, String machineId, String machineName) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(
-                  Icons.warning_amber_rounded,
-                  color: Colors.redAccent,
-                  size: 60,
-                ),
-                const SizedBox(height: 15),
-                Text(
-                  "Supprimer la machine ?",
-                  style: GoogleFonts.lato(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  "Voulez-vous vraiment supprimer $machineName ? Cette action est irréversible.",
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.grey),
-                ),
-                const SizedBox(height: 25),
-                Row(
-                  children: [
-                    Expanded(
-                      child: TextButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text(
-                          "Annuler",
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        onPressed: () {
-                          Provider.of<MachineProvider>(
-                            context,
-                            listen: false,
-                          ).deleteMachine(machineId);
-                          Navigator.pop(context);
-                        },
-                        child: const Text(
-                          "Supprimer",
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _handleSave(StateSetter setModalState) async {
-    setModalState(() {
-      idError =
-          (idController.text.isEmpty || int.tryParse(idController.text) == null)
-          ? "ID numérique requis"
-          : null;
-      nameError = nameController.text.trim().isEmpty ? "Nom obligatoire" : null;
-
-      latError =
-          (latController.text.isEmpty ||
-              double.tryParse(latController.text) == null)
-          ? "Latitude invalide"
-          : null;
-      lonError =
-          (lonController.text.isEmpty ||
-              double.tryParse(lonController.text) == null)
-          ? "Longitude invalide"
-          : null;
-      locationError = (machineLocation == null)
-          ? "Choisissez l'emplacement"
-          : null;
-      sizeError = (machineSize == null) ? "Choisissez la taille" : null;
-    });
-
-    if (idError == null &&
-        nameError == null &&
-        latError == null &&
-        lonError == null &&
-        locationError == null &&
-        sizeError == null) {
-
-      final newMachine = {
-        "machine_id": idController.text,
-        "name": nameController.text,
-        "latitude": double.parse(latController.text),
-        "longitude": double.parse(lonController.text),
-        "status": "actif",
-      };
-
-      bool success = await Provider.of<MachineProvider>(
-        context,
-        listen: false,
-      ).addMachine(newMachine);
-
-      if (success && mounted) {
-        _clearInputs();
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Machine ajoutée avec succès !"),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Erreur lors de l'ajout de la machine"),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+  String _mapUIToBackend(String uiStatus) {
+    switch (uiStatus) {
+      case "online": return "actif";
+      case "offline": return "inactif";
+      case "en panne": return "en_panne";
+      default: return "actif";
     }
   }
 
-  void _clearInputs() {
-    idController.clear();
-    nameController.clear();
-    selectedTypes.clear();
-    machineLocation = null;
-    machineSize = null;
-    latController.clear();
-    lonController.clear();
+  String _mapBackendToUI(String backendStatus) {
+    switch (backendStatus.toLowerCase()) {
+      case "actif": return "online";
+      case "inactif": return "offline";
+      case "en_panne": return "en panne";
+      default: return "online";
+    }
+  }
+
+  Widget _buildStatusFilters() {
+    final filters = ["Tous", "En ligne", "Hors ligne", "En panne"];
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: filters.map((f) {
+        bool isSelected = statusFilter == f;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4),
+          child: ChoiceChip(
+            label: Text(f, style: TextStyle(color: isSelected ? Colors.black : Colors.grey[700])),
+            selected: isSelected,
+            onSelected: (val) => setState(() => statusFilter = f),
+            selectedColor: const Color(0xFFD1FAE5),
+            backgroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: isSelected ? Colors.transparent : Colors.grey[300]!),
+            ),
+            showCheckmark: isSelected,
+          ),
+        );
+      }).toList(),
+    );
   }
 
   void _showAddMachineDialog() {
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Container(
-            width: MediaQuery.of(context).size.width * 0.9,
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.70,
-            ),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              children: [
-                Text(
-                  "Ajouter une Machine",
-                  style: GoogleFonts.lato(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: darkGreen,
-                  ),
-                ),
-                const SizedBox(height: 15),
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildField(
-                          idController,
-                          "ID Machine",
-                          Icons.fingerprint,
-                          idError,
-                          isNum: true,
-                        ),
-                        _buildField(
-                          nameController,
-                          "Nom",
-                          Icons.settings,
-                          nameError,
-                        ),
+        builder: (context, setModalState) {
+          final provider = Provider.of<MachineProvider>(context);
+          final isDark = Provider.of<SettingsProvider>(context).isDarkMode;
+          final Color dialogBg = isDark ? const Color(0xFF1E293B) : Colors.white;
+          final Color textColor = isDark ? Colors.white : darkGreen;
 
-                        // Coordonnées
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _buildField(
-                                latController,
-                                "Latitude",
-                                Icons.location_on,
-                                latError,
-                                isNum: true,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _buildField(
-                                lonController,
-                                "Longitude",
-                                Icons.location_on,
-                                lonError,
-                                isNum: true,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 15),
-                        DropdownButtonFormField<String>(
-                          value: machineSize,
-                          decoration: InputDecoration(
-                            labelText: "Type de Machine",
-                            prefixIcon: const Icon(Icons.aspect_ratio),
-                            errorText: sizeError,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          items: sizeOptions
-                              .map(
-                                (s) =>
-                                    DropdownMenuItem(value: s, child: Text(s)),
-                              )
-                              .toList(),
-                          onChanged: (val) =>
-                              setModalState(() => machineSize = val),
-                        ),
-                        const SizedBox(height: 15),
-
-                        DropdownButtonFormField<String>(
-                          value: machineLocation,
-                          decoration: InputDecoration(
-                            labelText: "Emplacement",
-                            prefixIcon: const Icon(Icons.place),
-                            errorText: locationError,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          items: locationOptions
-                              .map(
-                                (l) =>
-                                    DropdownMenuItem(value: l, child: Text(l)),
-                              )
-                              .toList(),
-                          onChanged: (val) =>
-                              setModalState(() => machineLocation = val),
-                        ),
-                        const SizedBox(height: 15),
-
-
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 15),
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: darkGreen,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                    ),
-                    onPressed: () => _handleSave(setModalState),
-                    child: const Text(
-                      "ENREGISTRER",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildField(
-    TextEditingController ctrl,
-    String label,
-    IconData icon,
-    String? err, {
-    bool isNum = false,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 15),
-      child: TextField(
-        controller: ctrl,
-        keyboardType: isNum ? TextInputType.number : TextInputType.text,
-        decoration: InputDecoration(
-          labelText: label,
-          prefixIcon: Icon(icon),
-          errorText: err,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      ),
-    );
-  }
-
-  void _showMachineDetailsDialog(Map<String, dynamic> machine) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (BuildContext context) {
-        double accuracy = machine['modelAccuracy'] ?? 0.0;
-
-        Color statusColor = Colors.grey;
-        String statusText = "Inconnu";
-        if (machine['status'] == 'actif') {
-          statusColor = Colors.green;
-          statusText = "En Ligne";
-        } else if (machine['status'] == 'inactif') {
-          statusColor = Colors.orange;
-          statusText = "Hors Ligne";
-        } else if (machine['status'] == 'en_panne') {
-          statusColor = Colors.red;
-          statusText = "En Panne";
-        }
-
-        return Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-          ),
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 24,
-            right: 24,
-            top: 24,
-          ),
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(context).size.height * 0.70,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 50,
-                  height: 5,
-                  margin: const EdgeInsets.only(bottom: 24),
-                  decoration: BoxDecoration(
-                    color: Colors.grey[300],
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          return Dialog(
+            backgroundColor: dialogBg,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: Container(
+              width: MediaQuery.of(context).size.width * 0.7,
+              constraints: const BoxConstraints(maxWidth: 800),
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Gestion: ${machine['name']}",
-                          style: GoogleFonts.lato(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: darkGreen,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text("ID: ${machine['machine_id'] ?? machine['id']} | 📍 Lat: ${machine['latitude']} | Lon: ${machine['longitude']}",
-                          style: const TextStyle(
-                            color: Colors.grey,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
+                  Text(
+                    "Ajouter une Machine",
+                    style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: textColor),
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(color: statusColor.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: statusColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          statusText,
-                          style: TextStyle(
-                            color: statusColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+                  const SizedBox(height: 25),
+                  _buildField(idController, "ID Machine", Icons.fingerprint, isDark),
+                  _buildField(nameController, "Nom", Icons.settings, isDark),
+                  Row(
+                    children: [
+                      Expanded(child: _buildField(latController, "Latitude", Icons.location_on, isDark)),
+                      const SizedBox(width: 10),
+                      Expanded(child: _buildField(lonController, "Longitude", Icons.location_on, isDark)),
+                    ],
+                  ),
+                  _buildDropdown("Type de Machine", Icons.aspect_ratio, machineType, typeOptions, (v) => setModalState(() => machineType = v), isDark),
+                  const SizedBox(height: 10),
+                  _buildDropdown("Emplacement", Icons.location_on, machineLocation, locationOptions, (v) => setModalState(() => machineLocation = v), isDark),
+                  const SizedBox(height: 35),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 60,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: darkGreen,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                        elevation: 0,
+                      ),
+                      onPressed: provider.isLoading ? null : () => _handleSave(setModalState),
+                      child: provider.isLoading 
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text("ENREGISTRER", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 24),
+            ),
+          );
+        }
+      ),
+    );
+  }
 
-              // Provider-Ready AI Model Stats
-              Container(
+  Widget _buildField(TextEditingController ctrl, String label, IconData icon, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 15),
+      child: TextField(
+        controller: ctrl,
+        style: TextStyle(color: isDark ? Colors.white : Colors.black),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.grey[700]),
+          prefixIcon: Icon(icon, color: isDark ? Colors.white60 : Colors.grey[700]),
+          filled: true,
+          fillColor: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF3F4F6),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDropdown(String label, IconData icon, String? value, List<String> options, Function(String?) onChanged, bool isDark) {
+    return DropdownButtonFormField<String>(
+      value: value,
+      dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+      style: TextStyle(color: isDark ? Colors.white : Colors.black),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: isDark ? Colors.white60 : Colors.grey[700]),
+        prefixIcon: Icon(icon, color: isDark ? Colors.white60 : Colors.grey[700]),
+        filled: true,
+        fillColor: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF3F4F6),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      ),
+      items: options.map((s) => DropdownMenuItem(value: s, child: Text(s))).toList(),
+      onChanged: onChanged,
+    );
+  }
+
+  Future<void> _handleSave(StateSetter setModalState) async {
+    if (idController.text.isEmpty || nameController.text.isEmpty) return;
+    final String serverType = (machineType ?? "petit").toLowerCase();
+    final String serverLocation = (machineLocation ?? "institut").toLowerCase().replaceAll(" ", "_");
+
+    final newMachine = {
+      "machine_id": idController.text,
+      "name": nameController.text,
+      "latitude": double.tryParse(latController.text) ?? 0.0,
+      "longitude": double.tryParse(lonController.text) ?? 0.0,
+      "type": serverType,
+      "location_type": serverLocation,
+      "status": "actif",
+    };
+
+    bool ok = await Provider.of<MachineProvider>(context, listen: false).addMachine(newMachine);
+    if (ok && mounted) {
+      await Provider.of<MachineProvider>(context, listen: false).fetchMachines();
+      Navigator.pop(context);
+      _clearInputs();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Machine ajoutée !") , backgroundColor: Colors.green));
+    }
+  }
+
+  void _clearInputs() {
+    idController.clear();
+    nameController.clear();
+    latController.clear();
+    lonController.clear();
+    machineType = null;
+    machineLocation = null;
+  }
+
+  void _showMachineDetails(String machineId, Map<String, dynamic> initialData) async {
+    final provider = Provider.of<MachineProvider>(context, listen: false);
+    showDialog(
+      context: context,
+      builder: (context) => FutureBuilder<Map<String, dynamic>?>(
+        future: provider.fetchMachineDetails(machineId),
+        builder: (context, snapshot) {
+          final machine = snapshot.data ?? initialData;
+          final bool loading = snapshot.connectionState == ConnectionState.waiting;
+          final isDark = Provider.of<SettingsProvider>(context, listen: false).isDarkMode;
+          String currentBackendStatus = (machine['status'] ?? 'actif').toString().toLowerCase();
+
+          return StatefulBuilder(
+            builder: (context, setModalState) => Dialog(
+              backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              child: Container(
                 padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.blue.shade50, Colors.white],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: Colors.blue.shade100),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.blue.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Row(
+                width: 480, // "Pas trop grand" - Largeur optimisée
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.shade100,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.psychology,
-                        color: Colors.blue,
-                        size: 28,
-                      ),
+                    // --- HEADER COMPACT ---
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                machine['name'] ?? 'Machine',
+                                style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold, color: isDark ? Colors.white : darkGreen),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              _buildStatusBadge(currentBackendStatus),
+                            ],
+                          ),
+                        ),
+                        IconButton(onPressed: () => Navigator.pop(context), icon: Icon(Icons.close, size: 20, color: isDark ? Colors.white60 : Colors.grey)),
+                      ],
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                    const SizedBox(height: 15),
+                    if (loading) const LinearProgressIndicator(minHeight: 2),
+                    const Divider(),
+                    const SizedBox(height: 10),
+
+                    // --- FULL ATTRIBUTES (From Screenshot) ---
+                    SizedBox(
+                      height: 380, // Hauteur contrôlée pour "Pas trop grand"
+                      child: ListView(
+                        shrinkWrap: true,
                         children: [
-                          Text(
-                            "Précision du Modèle IA",
-                            style: TextStyle(
-                              color: Colors.grey[700],
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "Modèle de tri optique actif",
-                            style: TextStyle(
-                              color: Colors.grey[500],
-                              fontSize: 12,
-                            ),
-                          ),
+                          _detailItem(Icons.fingerprint, "ID Machine", machine['machine_id'] ?? machine['id'] ?? 'S/N', isDark),
+                          _detailItem(Icons.settings, "Nom", machine['name'] ?? 'N/A', isDark),
+                          _detailItem(Icons.location_on_outlined, "Latitude", machine['latitude']?.toString() ?? '0.0', isDark),
+                          _detailItem(Icons.location_on_outlined, "Longitude", machine['longitude']?.toString() ?? '0.0', isDark),
+                          _detailItem(Icons.aspect_ratio_outlined, "Type", machine['type']?.toString().toUpperCase() ?? 'N/A', isDark),
+                          _detailItem(Icons.business_outlined, "Lieu", machine['location_type']?.toString().replaceAll("_", " ") ?? 'N/A', isDark),
+                          _detailItem(Icons.info_outline, "Statut", _mapBackendToUI(currentBackendStatus).toUpperCase(), isDark),
+                          _detailItem(Icons.auto_awesome_outlined, "Précision AI", "${(double.tryParse(machine['ai_accuracy']?.toString() ?? '0') ?? 0).toStringAsFixed(1)}%", isDark),
+                          _detailItem(Icons.calendar_today_outlined, "Créé le", _formatDate(machine['created_at']), isDark),
+                          _detailItem(Icons.history_outlined, "Modifié le", _formatDate(machine['updated_at']), isDark),
                         ],
                       ),
                     ),
-                    Text(
-                      "${(accuracy * 100).toStringAsFixed(1)}%",
-                      style: GoogleFonts.lato(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue.shade700,
-                      ),
+
+                    const SizedBox(height: 20),
+                    const Divider(),
+                    const SizedBox(height: 10),
+                    Text("CHANGER LE STATUT", style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? Colors.white60 : Colors.blueGrey)),
+                    const SizedBox(height: 12),
+                    
+                    // --- MODERN STATUS CHIPS ---
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: ["online", "offline", "en panne"].map((s) {
+                        bool isSel = _mapBackendToUI(currentBackendStatus) == s;
+                        Color sCol = s == "online" ? Colors.green : (s == "offline" ? Colors.orange : Colors.red);
+                        return ChoiceChip(
+                          label: Text(s.toUpperCase(), style: TextStyle(fontSize: 10, color: isSel ? Colors.white : sCol, fontWeight: FontWeight.bold)),
+                          selected: isSel,
+                          selectedColor: sCol,
+                          backgroundColor: sCol.withOpacity(0.1),
+                          side: BorderSide(color: sCol.withOpacity(0.5)),
+                          onSelected: (val) async {
+                            if (val) {
+                              String backendStatus = _mapUIToBackend(s);
+                              bool ok = await provider.updateMachineStatus(machineId, backendStatus);
+                              if (ok && mounted) {
+                                await provider.fetchMachines();
+                                setModalState(() => currentBackendStatus = backendStatus);
+                              }
+                            }
+                          },
+                        );
+                      }).toList(),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 24),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[100],
-                    foregroundColor: Colors.black87,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                  ),
-                  child: const Text(
-                    "Fermer la vue de gestion",
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
+  Widget _buildStatusBadge(String status) {
+    Color color = Colors.green;
+    if (status == "inactif") color = Colors.orange;
+    if (status == "en_panne") color = Colors.red;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(20), border: Border.all(color: color.withOpacity(0.5))),
+      child: Text(_mapBackendToUI(status).toUpperCase(), style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10)),
+    );
+  }
+
+
+
+  Widget _detailItem(IconData icon, String label, String value, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: isDark ? const Color(0xFF10B981) : darkGreen),
+              const SizedBox(width: 8),
+              Text(label, style: TextStyle(color: isDark ? Colors.white70 : Colors.blueGrey, fontSize: 13)),
             ],
           ),
-        );
-      },
+          Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : Colors.black)),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(dynamic date) {
+    if (date == null) return "N/A";
+    try {
+      return DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(date.toString()));
+    } catch (e) {
+      return date.toString();
+    }
+  }
+
+  void _confirmDelete(String id, String name) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.red.withOpacity(0.1), shape: BoxShape.circle),
+                child: const Icon(Icons.delete_forever, color: Colors.red, size: 40),
+              ),
+              const SizedBox(height: 20),
+              Text("Supprimer $name ?", style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 30),
+              Row(
+                children: [
+                  Expanded(child: TextButton(onPressed: () => Navigator.pop(context), child: const Text("ANNULER"))),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      onPressed: () async {
+                        bool ok = await Provider.of<MachineProvider>(context, listen: false).deleteMachine(id);
+                        if (ok && mounted) Navigator.pop(context);
+                      },
+                      child: const Text("SUPPRIMER", style: TextStyle(color: Colors.white)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final providerMachines = Provider.of<MachineProvider>(context).machines;
+    final provider = Provider.of<MachineProvider>(context);
+    final isDark = Provider.of<SettingsProvider>(context).isDarkMode;
 
-    final filtered = providerMachines.where((m) {
-      final matchesSearch = (m['name']?.toString() ?? '').toLowerCase().contains(
-        searchQuery.toLowerCase(),
-      );
-
-      bool matchesStatus = true;
-      if (statusFilter == "En ligne" && m['status'] != 'actif') {
-        matchesStatus = false;
+    final filtered = provider.machines.where((m) {
+      final nameMatches = (m['name']?.toString() ?? '').toLowerCase().contains(searchQuery.toLowerCase());
+      final idMatches = (m['machine_id']?.toString() ?? m['id']?.toString() ?? '').toLowerCase().contains(searchQuery.toLowerCase());
+      bool statusMatches = true;
+      if (statusFilter != "Tous") {
+        String mStatus = (m['status'] ?? 'actif').toString().toLowerCase();
+        if (statusFilter == "En ligne" && mStatus != "actif") statusMatches = false;
+        if (statusFilter == "Hors ligne" && mStatus != "inactif") statusMatches = false;
+        if (statusFilter == "En panne" && mStatus != "en_panne") statusMatches = false;
       }
-      if (statusFilter == "Hors ligne" && m['status'] != 'inactif') {
-        matchesStatus = false;
-      }
-      if (statusFilter == "En panne" && m['status'] != 'en_panne') {
-        matchesStatus = false;
-      }
-
-      return matchesSearch && matchesStatus;
+      return (nameMatches || idMatches) && statusMatches;
     }).toList();
 
     return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF111827) : const Color(0xFFF9FAFB),
       appBar: AppBar(
-        title: Text(
-          "Parc Machines",
-          style: GoogleFonts.lato(fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
+        title: Text("Parc Machines", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: isDark?Colors.white:darkGreen)),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              onChanged: (v) => setState(() => searchQuery = v),
-              decoration: InputDecoration(
-                hintText: "Rechercher une machine...",
-                prefixIcon: const Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.grey[100],
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide.none,
+      body: RefreshIndicator(
+        onRefresh: () => provider.fetchMachines(),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              TextField(
+                onChanged: (v) => setState(() => searchQuery = v),
+                style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                decoration: InputDecoration(
+                  hintText: "Rechercher...",
+                  hintStyle: TextStyle(color: isDark ? Colors.white54 : Colors.grey),
+                  prefixIcon: Icon(Icons.search, color: isDark ? Colors.white54 : Colors.grey),
+                  filled: true,
+                  fillColor: isDark ? Colors.white10 : Colors.white,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none),
                 ),
               ),
-            ),
-            const SizedBox(height: 10),
-
-            // Status Filters
-            const SizedBox(height: 10),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: ["Tous", "En ligne", "Hors ligne", "En panne"].map((
-                  status,
-                ) {
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8.0),
-                    child: ChoiceChip(
-                      label: Text(status),
-                      selected: statusFilter == status,
-                      onSelected: (selected) {
-                        if (selected) {
-                          setState(() => statusFilter = status);
-                        }
-                      },
-                      selectedColor: darkGreen.withOpacity(0.2),
-                      labelStyle: TextStyle(
-                        color: statusFilter == status
-                            ? darkGreen
-                            : Colors.black87,
-                        fontWeight: statusFilter == status
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-            const SizedBox(height: 15),
-            ElevatedButton.icon(
-              onPressed: _showAddMachineDialog,
-              icon: const Icon(Icons.add_circle_outline, color: Colors.white),
-              label: const Text(
-                "AJOUTER UNE MACHINE",
-                style: TextStyle(color: Colors.white),
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: darkGreen,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
+              const SizedBox(height: 15),
+              _buildStatusFilters(),
+              const SizedBox(height: 15),
+              SizedBox(
+                width: double.infinity,
+                height: 55,
+                child: ElevatedButton.icon(
+                  onPressed: _showAddMachineDialog,
+                  icon: const Icon(Icons.add, color: Colors.white),
+                  label: const Text("AJOUTER UNE MACHINE", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(backgroundColor: darkGreen, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
                 ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: ListView.builder(
-                itemCount: filtered.length,
-                itemBuilder: (ctx, i) {
-                  final m = filtered[i];
-
-                  // Status Logic
-                  Color statusColor = Colors.grey;
-                  if (m['status'] == 'actif') {
-                    statusColor = Colors.green;
-                  } else if (m['status'] == 'inactif') {
-                    statusColor = Colors.orange;
-                  } else if (m['status'] == 'en_panne') {
-                    statusColor = Colors.red;
-                  }
-
-                  return Card(
-                    elevation: 1,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
+              const SizedBox(height: 20),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: filtered.length,
+                  itemBuilder: (context, i) {
+                    final m = filtered[i];
+                    final mId = (m['machine_id'] ?? m['id'] ?? 'S/N').toString();
+                    final mName = m['name'] ?? 'Inconnu';
+                    final mStatus = (m['status'] ?? 'actif').toString().toLowerCase();
+                    return Card(
+                      color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                      margin: const EdgeInsets.only(bottom: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      child: ListTile(
+                        leading: CircleAvatar(backgroundColor: _getStatusColor(mStatus).withOpacity(0.1), child: Icon(Icons.precision_manufacturing, color: _getStatusColor(mStatus))),
+                        title: Text("$mName", style: TextStyle(fontWeight: FontWeight.bold, color: isDark?Colors.white:Colors.black)),
+                        subtitle: Text("ID: $mId", style: TextStyle(color: isDark?Colors.white60:Colors.grey)),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextButton(onPressed: () => _showMachineDetails(mId, m), child: const Text("Consulter")),
+                            IconButton(icon: const Icon(Icons.delete_outline, color: Colors.redAccent), onPressed: () => _confirmDelete(mId, mName)),
+                          ],
+                        ),
                       ),
-                      leading: Stack(
-                        children: [
-                          CircleAvatar(
-                            backgroundColor: darkGreen.withValues(alpha: 0.1),
-                            child: Icon(
-                              Icons.precision_manufacturing,
-                              color: darkGreen,
-                            ),
-                          ),
-                          Positioned(
-                            right: 0,
-                            bottom: 0,
-                            child: Container(
-                              width: 12,
-                              height: 12,
-                              decoration: BoxDecoration(
-                                color: statusColor,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.white,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      title: Text(
-                        "${m['name']} (ID: ${m['machine_id'] ?? m['id']})",
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      subtitle: Text("📍 Lat: ${m['latitude']} | Lon: ${m['longitude']}"),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ElevatedButton(
-                            onPressed: () => _showMachineDetailsDialog(m),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.blue.withValues(
-                                alpha: 0.1,
-                              ),
-                              foregroundColor: Colors.blue,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                              ),
-                            ),
-                            child: const Text(
-                              "Consulter",
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.delete_outline,
-                              color: Colors.redAccent,
-                            ),
-                            onPressed: () {
-                              final realIndex = providerMachines.indexOf(m);
-                              if (realIndex != -1)
-                                _showDeleteDialog(
-                                  realIndex,
-                                  m['id'],
-                                  m['name'],
-                                );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
+  }
+
+  Color _getStatusColor(String status) {
+    if (status == "actif") return Colors.green;
+    if (status == "inactif") return Colors.orange;
+    if (status == "en_panne") return Colors.red;
+    return Colors.grey;
   }
 }

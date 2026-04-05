@@ -11,10 +11,10 @@ class MachineProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  // Remplacez cette URL par votre véritable URL de backend
+  // URL réelle du backend Render
   final String baseUrl = "https://rvm-backend-oaot.onrender.com";
 
-  // Initialiser avec des données locales pour simuler
+  // Initialisation à vide (les données viendront de l'API)
   void setInitialMachines(List<Map<String, dynamic>> initialMachines) {
     if (_machines.isEmpty) {
       _machines = List.from(initialMachines);
@@ -22,17 +22,16 @@ class MachineProvider with ChangeNotifier {
     }
   }
 
-  // --- METHODES POUR API (Backend) ---
+  // --- MÉTHODES POUR API (Backend) ---
 
-  // 1. Récupérer toutes les machines
+  // 1. Récupérer toutes les machines depuis le serveur
   Future<void> fetchMachines() async {
     _isLoading = true;
     _error = null;
-    notifyListeners();
+    // On ne notifie pas ici pour éviter de "vider" l'écran avant le chargement
+    // notifyListeners();
 
     try {
-      // DÉCOMMENTER POUR UTILISER L'API:
-
       final response = await http.get(Uri.parse('$baseUrl/machine/search'));
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
@@ -40,18 +39,15 @@ class MachineProvider with ChangeNotifier {
       } else {
         _error = "Erreur de chargement: ${response.statusCode}";
       }
-
-      // Simulation asynchrone
-      await Future.delayed(const Duration(seconds: 1));
     } catch (e) {
-      _error = e.toString();
+      _error = "Erreur réseau: $e";
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  // 2. Ajouter une machine
+  // 2. Ajouter une machine sur le serveur (avec Debug Logs)
   Future<bool> addMachine(Map<String, dynamic> newMachine) async {
     _isLoading = true;
     notifyListeners();
@@ -59,32 +55,25 @@ class MachineProvider with ChangeNotifier {
     bool success = false;
 
     try {
-      // DÉCOMMENTER POUR UTILISER L'API:
+      print("🚀 TENTATIVE D'AJOUT MACHINE: ${json.encode(newMachine)}");
 
       final response = await http.post(
         Uri.parse('$baseUrl/machine/create'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode(newMachine),
       );
+
+      print("📡 RÉPONSE SERVEUR (Code: ${response.statusCode}): ${response.body}");
+
       if (response.statusCode == 201 || response.statusCode == 200) {
-        final addedMachine = json.decode(response.body);
-        _machines.add(addedMachine);
+        // Succès : Le serveur a confirmé la sauvegarde
         success = true;
       } else {
-        // En cas d'erreur API, on simule l'ajout pour le démo si besoin
-        // Mais attention, on ne veut pas l'ajouter deux fois.
-        _error = "Erreur d'ajout (Code: ${response.statusCode}). Simulation activée.";
-        _machines.add(newMachine);
-        success = true; 
+        _error = "Erreur d'ajout: ${response.statusCode} - ${response.body}";
       }
-
-      // Simulation asynchrone pour l'UI
-      await Future.delayed(const Duration(seconds: 1));
     } catch (e) {
-      _error = e.toString();
-      // On simule l'ajout même en cas d'erreur réseau pour la démo
-      _machines.add(newMachine);
-      success = true;
+      _error = "Erreur réseau lors de l'ajout: $e";
+      print("❌ ERREUR RÉSEAU: $e");
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -93,47 +82,64 @@ class MachineProvider with ChangeNotifier {
     return success;
   }
 
-  // 3. Supprimer une machine
+  // 3. Supprimer une machine sur le serveur
   Future<bool> deleteMachine(String machineId) async {
     bool success = false;
-
-    // Garder une copie au cas où l'API échoue
-    // On cherche par 'id' OU 'machine_id' pour plus de flexibilité
-    final machineIndex = _machines.indexWhere((m) => 
-      (m['id']?.toString() == machineId) || (m['machine_id']?.toString() == machineId)
-    );
-    
-    if (machineIndex == -1) return false;
-
-    final removedMachine = _machines[machineIndex];
-
-    // Suppression optimiste UX (immédiatement retiré de la liste)
-    _machines.removeAt(machineIndex);
+    _isLoading = true;
     notifyListeners();
 
     try {
       final response = await http.delete(
         Uri.parse('$baseUrl/machine/$machineId'),
       );
-      if (response.statusCode == 200) {
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        _machines.removeWhere((m) => 
+          (m['machine_id']?.toString() == machineId) || (m['id']?.toString() == machineId)
+        );
         success = true;
       } else {
-        // En cas d'erreur, on remet la machine dans la liste
-        _machines.insert(machineIndex, removedMachine);
         _error = "Erreur de suppression: ${response.statusCode}";
       }
-
-      // Simulation asynchrone
-      await Future.delayed(const Duration(milliseconds: 500));
-      success = true;
     } catch (e) {
-      // En cas d'erreur, on remet la machine dans la liste
-      _machines.insert(machineIndex, removedMachine);
-      _error = e.toString();
+      _error = "Erreur réseau: $e";
     } finally {
+      _isLoading = false;
       notifyListeners();
     }
 
     return success;
+  }
+
+  // 4. Récupérer les détails d'une machine spécifique (GET /machine/{id})
+  Future<Map<String, dynamic>?> fetchMachineDetails(String machineId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/machine/$machineId'));
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+    } catch (e) {
+      print("Erreur fetch machine details: $e");
+    }
+    return null;
+  }
+
+  // 5. Mettre à jour l'état d'une machine (PUT /machine/{id})
+  Future<bool> updateMachineStatus(String machineId, String newStatus) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/machine/$machineId/status'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({"status": newStatus}),
+      );
+      if (response.statusCode == 200) {
+        // Mettre à jour localement si nécessaire
+        await fetchMachines();
+        return true;
+      }
+    } catch (e) {
+      print("Erreur update status: $e");
+    }
+    return false;
   }
 }

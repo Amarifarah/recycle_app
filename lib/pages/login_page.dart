@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:recycle_app/models/login_model.dart';
+import '../providers/settings_provider.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -13,191 +14,177 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
 
-  @override
-  void initState() {
-    super.initState();
-  }
-
   void _login() async {
     final loginModel = context.read<LoginModel>();
     final success = await loginModel.login();
     if (success) {
       if (mounted) {
-        Navigator.pushNamed(context, "/dashboard");
+        Navigator.pushReplacementNamed(context, "/dashboard");
       }
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     final height = MediaQuery.of(context).size.height;
     final loginModel = context.watch<LoginModel>();
+    final settings = context.watch<SettingsProvider>();
+    final isDark = settings.isDarkMode;
 
     return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Center(
         child: SingleChildScrollView(
           child: Container(
             width: width * 0.9,
             height: height * 0.85,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(24),
-              boxShadow: const [
+              boxShadow: [
                 BoxShadow(
                   blurRadius: 30,
-                  color: Colors.black12,
-                  offset: Offset(0, 10),
+                  color: isDark ? Colors.black54 : Colors.black12,
+                  offset: const Offset(0, 10),
                 ),
               ],
             ),
             child: Row(
               children: [
-                // Partie visuelle EcoVision
-                Expanded(
-                  flex: 5,
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(24),
-                        bottomLeft: Radius.circular(24),
+                // Partie visuelle EcoVision (Desktop/Large Screen style)
+                if (width > 800)
+                  Expanded(
+                    flex: 5,
+                    child: Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(24),
+                          bottomLeft: Radius.circular(24),
+                        ),
+                        color: isDark ? const Color(0xFF1E293B) : const Color(0xFFE8F5F0),
                       ),
-                      color: Colors.white,
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // Logo
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Container(
-                              width: 50,
-                              height: 50,
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: LinearGradient(
-                                  colors: [Color(0xFF2E7D32), Colors.green],
-                                  begin: Alignment(1, -1),
-                                  end: Alignment(-1, 1),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Logo
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 50,
+                                height: 50,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  gradient: LinearGradient(
+                                    colors: [Color(0xFF2E7D32), Colors.green],
+                                    begin: Alignment(1, -1),
+                                    end: Alignment(-1, 1),
+                                  ),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.eco_rounded,
+                                    color: Colors.white,
+                                    size: 28,
+                                  ),
                                 ),
                               ),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.eco_rounded,
-                                  color: Colors.white,
-                                  size: 28,
+                              const SizedBox(width: 12),
+                              Text(
+                                'GreenMachine',
+                                style: GoogleFonts.readexPro(
+                                  fontSize: 32,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF2E7D32),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'GreenMachine',
-                              style: GoogleFonts.readexPro(
-                                fontSize: 32,
-                                fontWeight: FontWeight.bold,
-                                color:  Color(0xFF2E7D32),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
+                            ],
+                          ),
+                          const SizedBox(height: 32),
 
-                        // Texte descriptif
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Supervision Intelligente',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.readexPro(
-                                fontSize: 28,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFF1B5E20),
-                              ),
+                          // Texte descriptif
+                          Text(
+                            settings.translate('intelligent_supervision'),
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.readexPro(
+                              fontSize: 28,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.green[400] : const Color(0xFF1B5E20),
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Optimisez vos machines de recyclage avec notre plateforme de monitoring avancée',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.inter(
-                                fontSize: 16,
-                                color: const Color(0xFF4A5568),
-                                height: 1.5,
-                              ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            settings.translate('login_descriptor'),
+                            textAlign: TextAlign.center,
+                            style: GoogleFonts.inter(
+                              fontSize: 14,
+                              color: isDark ? Colors.grey[400] : const Color(0xFF4A5568),
+                              height: 1.5,
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 32),
+                          ),
+                          const SizedBox(height: 32),
 
-                        // Image de fond avec overlay
-                        Flexible(
-                          child: Container(
-                            width: double.infinity,
-                            height:
-                                MediaQuery.of(context).size.height *
-                                0.4, // 40% de la hauteur
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE8F5F0),
-                              borderRadius: BorderRadius.circular(16),
-                              image: const DecorationImage(
-                                fit: BoxFit.cover,
-                                image: NetworkImage(
-                                  'https://images.unsplash.com/photo-1687380386775-e41dd5df0358?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w0NTYyMDF8MHwxfHJhbmRvbXx8fHx8fHx8fDE3NjQwMjQzNDZ8&ixlib=rb-4.1.0&q=80&w=1080',
-                                ),
-                              ),
-                            ),
+                          // Image de fond avec overlay
+                          Flexible(
                             child: Container(
+                              width: double.infinity,
+                              height: height * 0.4,
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(16),
-                                gradient: const LinearGradient(
-                                  colors: [
-                                    Color(0x002E7D32),
-                                    Color(0x4D2E7D32),
-                                  ],
-                                  begin: Alignment(1, 1),
-                                  end: Alignment(-1, -1),
+                                image: const DecorationImage(
+                                  fit: BoxFit.cover,
+                                  image: NetworkImage(
+                                    'https://images.unsplash.com/photo-1687380386775-e41dd5df0358?crop=entropy&cs=tinysrgb&fit=max&fm=jpg',
+                                  ),
                                 ),
                               ),
-                              padding: const EdgeInsets.all(24),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Surveillance en temps réel',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w600,
-                                      color: Colors.white,
-                                    ),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(16),
+                                  gradient: const LinearGradient(
+                                    colors: [Color(0x002E7D32), Color(0x6D2E7D32)],
+                                    begin: Alignment(1, 1),
+                                    end: Alignment(-1, -1),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Contrôlez l\'efficacité de vos équipements',
-                                    style: GoogleFonts.inter(
-                                      fontSize: 14,
-                                      color: const Color(0xCCFFFFFF),
-                                      height: 1.4,
+                                ),
+                                padding: const EdgeInsets.all(24),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      settings.translate('real_time_monitoring'),
+                                      style: GoogleFonts.inter(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.white,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      settings.translate('control_efficiency'),
+                                      style: GoogleFonts.inter(
+                                        fontSize: 12,
+                                        color: const Color(0xCCFFFFFF),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
 
                 // Partie formulaire de connexion
                 Expanded(
                   flex: 5,
                   child: Container(
-                    padding: const EdgeInsets.all(48),
+                    padding: EdgeInsets.all(width > 600 ? 48 : 24),
                     child: Center(
                       child: SingleChildScrollView(
                         child: Form(
@@ -205,94 +192,56 @@ class _LoginPageState extends State<LoginPage> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
+                              if (width <= 800) ...[
+                                const Icon(Icons.eco_rounded, color: Colors.green, size: 48),
+                                const SizedBox(height: 16),
+                              ],
                               Text(
-                                'Connexion',
+                                settings.translate('login'),
                                 style: GoogleFonts.readexPro(
                                   fontSize: 32,
                                   fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF1B5E20),
+                                  color: isDark ? Colors.white : const Color(0xFF1B5E20),
                                 ),
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Accédez à votre tableau de bord',
+                                settings.translate('login_subtitle'),
                                 textAlign: TextAlign.center,
                                 style: GoogleFonts.inter(
-                                  fontSize: 16,
-                                  color: const Color(0xFF718096),
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
                                 ),
                               ),
-                              const SizedBox(height: 24),
+                              const SizedBox(height: 32),
 
                               // Email
-                              TextFormField(
+                              _buildTextField(
+                                context,
                                 controller: loginModel.emailController,
-                                keyboardType: TextInputType.emailAddress,
-                                decoration: InputDecoration(
-                                  labelText: 'Adresse email',
-                                  hintText: 'votre.email@entreprise.com',
-                                  prefixIcon: const Icon(
-                                    Icons.email_outlined,
-                                    size: 20,
-                                  ),
-                                  filled: true,
-                                  fillColor: const Color(0xFFF7FAFC),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFFE2E8F0),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF38A169),
-                                      width: 2,
-                                    ),
-                                  ),
-                                ),
+                                label: settings.translate('email_address'),
+                                icon: Icons.email_outlined,
+                                isDark: isDark,
                               ),
                               const SizedBox(height: 16),
 
                               // Mot de passe
-                              TextFormField(
+                              _buildTextField(
+                                context,
                                 controller: loginModel.passwordController,
-                                obscureText: !loginModel.showPassword,
-                                decoration: InputDecoration(
-                                  labelText: 'Mot de passe',
-                                  hintText: 'Votre mot de passe sécurisé',
-                                  prefixIcon: const Icon(
-                                    Icons.lock_outlined,
-                                    size: 20,
+                                label: settings.translate('password'),
+                                icon: Icons.lock_outlined,
+                                obscure: !loginModel.showPassword,
+                                isDark: isDark,
+                                suffix: IconButton(
+                                  icon: Icon(
+                                    loginModel.showPassword
+                                        ? Icons.visibility_outlined
+                                        : Icons.visibility_off_outlined,
+                                    size: 18,
+                                    color: Colors.grey,
                                   ),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      loginModel.showPassword
-                                          ? Icons.visibility_outlined
-                                          : Icons.visibility_off_outlined,
-                                    ),
-                                    onPressed: () {
-                                      loginModel.togglePassword();
-                                    },
-                                  ),
-                                  filled: true,
-
-                                  fillColor: const Color(0xFFF7FAFC),
-                                  enabledBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFFE2E8F0),
-                                      width: 2,
-                                    ),
-                                  ),
-                                  focusedBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: const BorderSide(
-                                      color: Color(0xFF38A169),
-                                      width: 2,
-                                    ),
-                                  ),
+                                  onPressed: () => loginModel.togglePassword(),
                                 ),
                               ),
                               const SizedBox(height: 24),
@@ -300,77 +249,58 @@ class _LoginPageState extends State<LoginPage> {
                               // Bouton
                               SizedBox(
                                 width: double.infinity,
-                                height: 56,
-                                child: ElevatedButton.icon(
+                                height: 52,
+                                child: ElevatedButton(
                                   onPressed: loginModel.isLoading ? null : _login,
-                                  icon: loginModel.isLoading 
-                                    ? const SizedBox(
-                                        width: 20, height: 20, 
-                                        child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
-                                      )
-                                    : const Icon(
-                                        Icons.login_rounded,
-                                        size: 20,
-                                      ),
-                                  label: Text(
-                                    loginModel.isLoading ? 'Connexion...' : 'Se connecter',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.green[700],
+                                    foregroundColor: Colors.white,
+                                    elevation: 0,
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
+                                  child: loginModel.isLoading 
+                                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                    : Text(
+                                        settings.translate('login'),
+                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                      ),
                                 ),
                               ),
                               const SizedBox(height: 16),
 
-                              // Mot de passe oublié
                               TextButton(
                                 onPressed: () {},
-                                child: const Text(
-                                  'Mot de passe oublié ?',
-                                  style: TextStyle(color: Color(0xFF38A169)),
+                                child: Text(
+                                  settings.translate('forgot_password'),
+                                  style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
                                 ),
                               ),
 
-                              // Message d'erreur
-                              if (loginModel.errorMessage != null)
+                              if (loginModel.errorMessage != null) ...[
+                                const SizedBox(height: 16),
                                 Container(
-                                  width: double.infinity,
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFF7FAFC),
+                                    color: Colors.red.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(
-                                      color: const Color(0xFFE2E8F0),
-                                      width: 2,
-                                    ),
+                                    border: Border.all(color: Colors.red.withOpacity(0.3)),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      const Icon(
-                                        Icons.error_outline_rounded,
-                                        color: Color(0xFFE53E3E),
-                                      ),
+                                      const Icon(Icons.error_outline, color: Colors.red, size: 20),
                                       const SizedBox(width: 8),
                                       Expanded(
                                         child: Text(
                                           loginModel.errorMessage!,
-                                          style: const TextStyle(
-                                            color: Color(0xFFE53E3E),
-                                          ),
-                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(color: Colors.red, fontSize: 13),
                                         ),
                                       ),
                                     ],
                                   ),
                                 ),
+                              ],
                             ],
                           ),
                         ),
@@ -381,6 +311,37 @@ class _LoginPageState extends State<LoginPage> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField(BuildContext context, {
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    required bool isDark,
+    bool obscure = false,
+    Widget? suffix,
+  }) {
+    return TextFormField(
+      controller: controller,
+      obscureText: obscure,
+      style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: TextStyle(color: Colors.grey[600], fontSize: 14),
+        prefixIcon: Icon(icon, size: 20, color: Colors.green),
+        suffixIcon: suffix,
+        filled: true,
+        fillColor: isDark ? Colors.white.withOpacity(0.05) : const Color(0xFFF7FAFC),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Colors.green, width: 2),
         ),
       ),
     );

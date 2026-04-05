@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../models/clients_model.dart'; // Assure-toi que ce fichier contient bien la classe Client et clientsMock
+import 'package:provider/provider.dart';
+import '../models/clients_model.dart';
+import '../providers/settings_provider.dart';
 
 class ClientsPage extends StatefulWidget {
   const ClientsPage({super.key});
@@ -21,6 +23,9 @@ class _ClientsPageState extends State<ClientsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final settings = Provider.of<SettingsProvider>(context);
+    final isDark = settings.isDarkMode;
+
     // 1. LOGIQUE DE FILTRAGE
     List<Client> filteredClients = clientsMock.where((c) {
       final query = _searchController.text.toLowerCase();
@@ -33,15 +38,15 @@ class _ClientsPageState extends State<ClientsPage> {
     }).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFB),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: Column(
           children: [
             // --- HEADER ---
-            _buildHeader(),
+            _buildHeader(context, settings),
 
             // --- BARRE DE FILTRES ---
-            _buildFilterBar(),
+            _buildFilterBar(context, settings),
 
             // --- TABLEAU DES CLIENTS ---
             Expanded(
@@ -49,12 +54,12 @@ class _ClientsPageState extends State<ClientsPage> {
                 padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
                         blurRadius: 4,
-                        color: Colors.black.withOpacity(0.08),
+                        color: Colors.black.withOpacity(isDark ? 0.3 : 0.08),
                         offset: const Offset(0, 2),
                       ),
                     ],
@@ -63,7 +68,7 @@ class _ClientsPageState extends State<ClientsPage> {
                     borderRadius: BorderRadius.circular(12),
                     child: Column(
                       children: [
-                        _buildTableHeader(),
+                        _buildTableHeader(context),
                         Expanded(
                           child: filteredClients.isEmpty
                               ? _buildEmptyState()
@@ -71,6 +76,7 @@ class _ClientsPageState extends State<ClientsPage> {
                                   itemCount: filteredClients.length,
                                   itemBuilder: (context, index) {
                                     return _buildClientRow(
+                                      context,
                                       filteredClients[index],
                                     );
                                   },
@@ -90,34 +96,35 @@ class _ClientsPageState extends State<ClientsPage> {
 
   // --- WIDGETS COMPOSANTS ---
 
-  Widget _buildHeader() {
+  Widget _buildHeader(BuildContext context, SettingsProvider settings) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE5E7EB))),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Gestion des Clients',
-                style: GoogleFonts.outfit(
-                  fontSize: 26,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1F2937),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  settings.translate('client_management'),
+                  style: GoogleFonts.outfit(
+                    fontSize: 26,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              const Text(
-                'Supervision et analyse des utilisateurs de recyclage',
-                style: TextStyle(color: Color(0xFF6B7280), fontSize: 14),
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  'Supervision et analyse des utilisateurs',
+                  style: TextStyle(color: Colors.grey[500], fontSize: 14),
+                ),
+              ],
+            ),
           ),
           Row(
             children: [
@@ -125,14 +132,14 @@ class _ClientsPageState extends State<ClientsPage> {
                 "CSV",
                 Icons.file_download_outlined,
                 const Color(0xFF059669),
-                const Color(0xFFF0FDF4),
+                const Color(0xFFF0FDF4).withOpacity(0.1),
               ),
               const SizedBox(width: 12),
               _buildExportButton(
                 "PDF",
                 Icons.picture_as_pdf_outlined,
                 const Color(0xFF1D4ED8),
-                const Color(0xFFEFF6FF),
+                const Color(0xFFEFF6FF).withOpacity(0.1),
               ),
             ],
           ),
@@ -147,10 +154,10 @@ class _ClientsPageState extends State<ClientsPage> {
     Color color,
     Color bg,
   ) {
-    return Container(
+    return SizedBox(
       height: 40,
       child: ElevatedButton.icon(
-        onPressed: () => print("Export $label"),
+        onPressed: () {},
         icon: Icon(icon, size: 18, color: color),
         label: Text(
           label,
@@ -166,31 +173,31 @@ class _ClientsPageState extends State<ClientsPage> {
     );
   }
 
-  Widget _buildFilterBar() {
+  Widget _buildFilterBar(BuildContext context, SettingsProvider settings) {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Row(
         children: [
           Expanded(
-            child: Container(
+            child: SizedBox(
               height: 45,
               child: TextFormField(
                 controller: _searchController,
                 onChanged: (_) => setState(() {}),
                 decoration: InputDecoration(
-                  hintText: 'Rechercher un client...',
+                  hintText: settings.translate('search'),
                   hintStyle: const TextStyle(fontSize: 14),
                   prefixIcon: const Icon(
                     Icons.search,
-                    color: Color(0xFF6B7280),
+                    color: Colors.grey,
                     size: 20,
                   ),
-                  fillColor: Colors.white,
+                  fillColor: Theme.of(context).cardColor,
                   filled: true,
                   contentPadding: const EdgeInsets.symmetric(vertical: 0),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFFD1D5DB)),
+                    borderSide: BorderSide(color: Theme.of(context).dividerColor),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
@@ -204,31 +211,27 @@ class _ClientsPageState extends State<ClientsPage> {
             ),
           ),
           const SizedBox(width: 16),
-          _buildDropdownStatus(),
+          _buildDropdownStatus(context),
         ],
       ),
     );
   }
 
-  Widget _buildDropdownStatus() {
+  Widget _buildDropdownStatus(BuildContext context) {
     return Container(
       width: 160,
       height: 45,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: const Color(0xFFD1D5DB)),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _selectedStatus,
           icon: const Icon(Icons.filter_list, size: 18),
-          style: const TextStyle(
-            color: Color(0xFF374151),
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-          ),
+          dropdownColor: Theme.of(context).cardColor,
           items: ['Actif', 'Inactif', 'Suspendu'].map((e) {
             return DropdownMenuItem(value: e, child: Text(e));
           }).toList(),
@@ -238,43 +241,32 @@ class _ClientsPageState extends State<ClientsPage> {
     );
   }
 
-  Widget _buildTableHeader() {
+  Widget _buildTableHeader(BuildContext context) {
+    final Color textColor = Theme.of(context).textTheme.bodySmall!.color!;
     return Container(
-      color: const Color(0xFFF9FAFB),
+      color: Theme.of(context).dividerColor.withOpacity(0.05),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
-      child: const Row(
+      child: Row(
         children: [
           Expanded(
             flex: 2,
             child: Text(
               'CLIENT',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-                color: Color(0xFF4B5563),
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: textColor),
             ),
           ),
           Expanded(
             flex: 2,
             child: Text(
               'EMAIL',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-                color: Color(0xFF4B5563),
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: textColor),
             ),
           ),
           Expanded(
             child: Center(
               child: Text(
                 'BOUTEILLES',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  color: Color(0xFF4B5563),
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: textColor),
               ),
             ),
           ),
@@ -282,11 +274,7 @@ class _ClientsPageState extends State<ClientsPage> {
             child: Center(
               child: Text(
                 'POIDS (KG)',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  color: Color(0xFF4B5563),
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: textColor),
               ),
             ),
           ),
@@ -294,11 +282,7 @@ class _ClientsPageState extends State<ClientsPage> {
             child: Center(
               child: Text(
                 'POINTS',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  color: Color(0xFF4B5563),
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: textColor),
               ),
             ),
           ),
@@ -306,25 +290,21 @@ class _ClientsPageState extends State<ClientsPage> {
             child: Center(
               child: Text(
                 'INSCRIPTION',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  color: Color(0xFF4B5563),
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: textColor),
               ),
             ),
           ),
-          SizedBox(width: 40),
+          const SizedBox(width: 40),
         ],
       ),
     );
   }
 
-  Widget _buildClientRow(Client client) {
+  Widget _buildClientRow(BuildContext context, Client client) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Color(0xFFF3F4F6))),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.5))),
       ),
       child: Row(
         children: [
@@ -333,8 +313,9 @@ class _ClientsPageState extends State<ClientsPage> {
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: const Color(0xFFE5E7EB),
+                  backgroundColor: Theme.of(context).dividerColor,
                   radius: 18,
+                  child: const Icon(Icons.person, size: 20, color: Colors.grey),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -343,18 +324,11 @@ class _ClientsPageState extends State<ClientsPage> {
                     children: [
                       Text(
                         client.name,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 14,
-                          color: Color(0xFF111827),
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                       ),
                       Text(
                         "ID: ${client.id}",
-                        style: const TextStyle(
-                          color: Color(0xFF6B7280),
-                          fontSize: 11,
-                        ),
+                        style: TextStyle(color: Colors.grey[500], fontSize: 11),
                       ),
                     ],
                   ),
@@ -366,7 +340,7 @@ class _ClientsPageState extends State<ClientsPage> {
             flex: 2,
             child: Text(
               client.email,
-              style: const TextStyle(color: Color(0xFF4B5563), fontSize: 13),
+              style: TextStyle(color: Colors.grey[600], fontSize: 13),
             ),
           ),
           Expanded(
@@ -382,16 +356,12 @@ class _ClientsPageState extends State<ClientsPage> {
             child: Text(
               client.registrationDate,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Color(0xFF374151), fontSize: 13),
+              style: const TextStyle(fontSize: 13),
             ),
           ),
           IconButton(
             onPressed: () {},
-            icon: const Icon(
-              Icons.arrow_forward_ios,
-              color: Color(0xFF9CA3AF),
-              size: 14,
-            ),
+            icon: const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 14),
           ),
         ],
       ),
@@ -409,11 +379,7 @@ class _ClientsPageState extends State<ClientsPage> {
         ),
         child: Text(
           text,
-          style: TextStyle(
-            color: color,
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold),
         ),
       ),
     );
@@ -435,3 +401,4 @@ class _ClientsPageState extends State<ClientsPage> {
     );
   }
 }
+

@@ -7,6 +7,8 @@ import 'pages/settings_page.dart';
 import 'pages/analytics_page.dart';
 import 'providers/machine_provider.dart';
 import 'models/login_model.dart';
+import 'models/dashboard_model.dart';
+import 'providers/settings_provider.dart'; // Import SettingsProvider
 
 void main() {
   runApp(const MyApp());
@@ -21,21 +23,60 @@ class MyApp extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => MachineProvider()),
         ChangeNotifierProvider(create: (_) => LoginModel()),
+        ChangeNotifierProvider(create: (_) => DashboardPageModel()),
+        ChangeNotifierProvider(create: (_) => SettingsProvider()), // Register SettingsProvider
       ],
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'My Dashboard App',
-        theme: ThemeData(primarySwatch: Colors.blue),
+      child: Consumer<SettingsProvider>(
+        builder: (context, settings, child) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: 'My Dashboard App',
+            locale: settings.locale, // Localisation simple
+            
+            // THÈME CLAIR
+            themeMode: settings.themeMode, 
+            theme: ThemeData(
+              useMaterial3: true,
+              primarySwatch: Colors.green,
+              scaffoldBackgroundColor: const Color(0xFFF8FAFB),
+              appBarTheme: const AppBarTheme(
+                backgroundColor: Colors.white,
+                elevation: 0,
+                iconTheme: IconThemeData(color: Colors.black87),
+              ),
+              colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
+            ),
 
-        // PAGE DE DÉMARRAGE
-        home: const LoginPage(),
+            // THÈME SOMBRE (Amélioré)
+            darkTheme: ThemeData(
+              useMaterial3: true,
+              brightness: Brightness.dark,
+              primarySwatch: Colors.green,
+              scaffoldBackgroundColor: const Color(0xFF0F172A), // Bleu foncé premium
+              appBarTheme: const AppBarTheme(
+                backgroundColor: Color(0xFF1E293B),
+                elevation: 0,
+                iconTheme: IconThemeData(color: Colors.white),
+              ),
+              cardTheme: CardThemeData(
+                color: const Color(0xFF1E293B),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              ),
+              colorScheme: ColorScheme.fromSeed(
+                seedColor: Colors.green,
+                brightness: Brightness.dark,
+                surface: const Color(0xFF1E293B),
+              ),
+            ),
 
-        // ⭐⭐ ROUTES ICI ⭐⭐
-        routes: {
-          "/login": (context) => const LoginPage(),
-          "/dashboard": (context) => const DashboardPage(),
-          "/clients": (context) => const ClientsPage(),
-          "/settings": (context) => const SettingsPage(), // ⭐ ROUTE AJOUTÉE
+            home: const LoginPage(),
+            routes: {
+              "/login": (context) => const LoginPage(),
+              "/dashboard": (context) => const DashboardPage(),
+              "/clients": (context) => const ClientsPage(),
+              "/settings": (context) => const SettingsPage(),
+            },
+          );
         },
       ),
     );
