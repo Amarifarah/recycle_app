@@ -65,7 +65,7 @@ class NotificationProvider with ChangeNotifier {
       final response = await http.put(
         Uri.parse('$baseUrl/notif/status/$id'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({"status": "lue"}),
+        body: json.encode({"status": "traitée"}),
       );
       if (response.statusCode == 200) {
         _pendingNotifications.removeWhere((n) => n['_id'] == id);

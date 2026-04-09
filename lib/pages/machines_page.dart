@@ -753,7 +753,7 @@ class _MachinesPageState extends State<MachinesPage> {
                               final String msg = n['message'] ?? '';
                               final String status =
                                   (n['status'] ?? 'envoyée').toString();
-                              final bool isRead = status == 'lue';
+                              final bool isRead = status == 'traitée';
 
                               IconData ico = Icons.notifications_outlined;
                               Color icoColor = Colors.blue;
