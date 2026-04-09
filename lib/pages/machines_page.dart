@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import '../providers/machine_provider.dart';
+import '../providers/notification_provider.dart';
 import '../providers/settings_provider.dart';
 
 class MachinesPage extends StatefulWidget {
@@ -105,16 +106,14 @@ class _MachinesPageState extends State<MachinesPage> {
   }
 
   void _showAddMachineDialog() {
-    _clearInputs(); // S'assurer que le formulaire est vide à chaque ouverture
+    _clearInputs();
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) {
           final provider = Provider.of<MachineProvider>(context);
           final isDark = Provider.of<SettingsProvider>(context).isDarkMode;
-          final Color dialogBg = isDark
-              ? const Color(0xFF1E293B)
-              : Colors.white;
+          final Color dialogBg = isDark ? const Color(0xFF1E293B) : Colors.white;
           final Color textColor = isDark ? Colors.white : darkGreen;
 
           return Dialog(
@@ -138,31 +137,16 @@ class _MachinesPageState extends State<MachinesPage> {
                     ),
                   ),
                   const SizedBox(height: 25),
-                  _buildField(
-                    idController,
-                    "ID Machine",
-                    Icons.fingerprint,
-                    isDark,
-                  ),
+                  _buildField(idController, "ID Machine", Icons.fingerprint, isDark),
                   _buildField(nameController, "Nom", Icons.settings, isDark),
                   Row(
                     children: [
                       Expanded(
-                        child: _buildField(
-                          latController,
-                          "Latitude",
-                          Icons.location_on,
-                          isDark,
-                        ),
+                        child: _buildField(latController, "Latitude", Icons.location_on, isDark),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: _buildField(
-                          lonController,
-                          "Longitude",
-                          Icons.location_on,
-                          isDark,
-                        ),
+                        child: _buildField(lonController, "Longitude", Icons.location_on, isDark),
                       ),
                     ],
                   ),
@@ -293,9 +277,7 @@ class _MachinesPageState extends State<MachinesPage> {
     );
   }
 
-  // --- FONCTION GÉOCODAGE UNIVERSELLE ---
   Future<Map<String, String>> _getLocationData(double lat, double lng) async {
-    // 1. Tenter la méthode native (Geocoding de l'appareil)
     try {
       List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
       if (placemarks.isNotEmpty) {
@@ -317,7 +299,6 @@ class _MachinesPageState extends State<MachinesPage> {
       print("DEBUG: Geocoding natif ignoré, passage au fallback Web.");
     }
 
-    // 2. Fallback Universel (OpenStreetMap Nominatim) - Fonctionne partout
     try {
       final response = await http.get(
         Uri.parse(
@@ -329,18 +310,14 @@ class _MachinesPageState extends State<MachinesPage> {
         final data = json.decode(response.body);
         final addr = data['address'];
         if (addr != null) {
-          // Wilaya: en Algérie, souvent dans province, state ou county
           String wilaya =
               addr['province'] ??
               addr['state'] ??
               addr['county'] ??
               addr['city'] ??
               "Inconnu";
-          // Adresse: display_name est très précis
           String displayName = data['display_name'] ?? "";
           String address = displayName;
-
-          // Petit nettoyage pour ne pas avoir une adresse de 3 lignes
           if (displayName.contains(",")) {
             List<String> parts = displayName.split(",");
             if (parts.length > 3) {
@@ -380,11 +357,9 @@ class _MachinesPageState extends State<MachinesPage> {
   Future<void> _handleSave(StateSetter setModalState) async {
     if (idController.text.isEmpty || nameController.text.isEmpty) return;
 
-    // On récupère les coordonnées
     double lat = double.tryParse(latController.text) ?? 0.0;
     double lng = double.tryParse(lonController.text) ?? 0.0;
 
-    // Récupérer les données de localisation réelles
     Map<String, String> locationData = await _getLocationData(lat, lng);
 
     final String serverType = (machineType ?? "petit").toLowerCase();
@@ -460,11 +435,10 @@ class _MachinesPageState extends State<MachinesPage> {
               ),
               child: Container(
                 padding: const EdgeInsets.all(20),
-                width: 480, // "Pas trop grand" - Largeur optimisée
+                width: 480,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // --- HEADER COMPACT ---
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -500,107 +474,49 @@ class _MachinesPageState extends State<MachinesPage> {
                     if (loading) const LinearProgressIndicator(minHeight: 2),
                     const Divider(),
                     const SizedBox(height: 10),
-
-                    // --- FULL ATTRIBUTES (From Screenshot) ---
                     SizedBox(
-                      height: 380, // Hauteur contrôlée pour "Pas trop grand"
+                      height: 380,
                       child: ListView(
                         shrinkWrap: true,
                         children: [
-                          _detailItem(
-                            Icons.fingerprint,
-                            "ID Machine",
-                            machine['machine_id'] ?? machine['id'] ?? 'S/N',
-                            isDark,
-                          ),
-                          _detailItem(
-                            Icons.settings,
-                            "Nom",
-                            machine['name'] ?? 'N/A',
-                            isDark,
-                          ),
-                          _detailItem(
-                            Icons.location_on_outlined,
-                            "Latitude",
-                            machine['latitude']?.toString() ?? '0.0',
-                            isDark,
-                          ),
-                          _detailItem(
-                            Icons.location_on_outlined,
-                            "Longitude",
-                            machine['longitude']?.toString() ?? '0.0',
-                            isDark,
-                          ),
-                          _detailItem(
-                            Icons.aspect_ratio_outlined,
-                            "Type",
-                            machine['type']?.toString().toUpperCase() ?? 'N/A',
-                            isDark,
-                          ),
+                          _detailItem(Icons.fingerprint, "ID Machine",
+                              machine['machine_id'] ?? machine['id'] ?? 'S/N', isDark),
+                          _detailItem(Icons.settings, "Nom",
+                              machine['name'] ?? 'N/A', isDark),
+                          _detailItem(Icons.location_on_outlined, "Latitude",
+                              machine['latitude']?.toString() ?? '0.0', isDark),
+                          _detailItem(Icons.location_on_outlined, "Longitude",
+                              machine['longitude']?.toString() ?? '0.0', isDark),
+                          _detailItem(Icons.aspect_ratio_outlined, "Type",
+                              machine['type']?.toString().toUpperCase() ?? 'N/A', isDark),
                           _detailItem(
                             Icons.business_outlined,
                             "Lieu",
-                            (machine['location_type']?.toString().replaceAll(
-                                      "_",
-                                      " ",
-                                    ) ??
-                                    'N/A')
-                                .toUpperCase(),
+                            (machine['location_type']?.toString().replaceAll("_", " ") ?? 'N/A').toUpperCase(),
                             isDark,
                           ),
-                          _detailItem(
-                            Icons.map_outlined,
-                            "Wilaya",
-                            machine['city']?.toString() ?? 'Inconnu',
-                            isDark,
-                          ),
-                          _detailItem(
-                            Icons.location_on_outlined,
-                            "Adresse",
-                            machine['address']?.toString() ?? 'N/A',
-                            isDark,
-                          ),
-                          _detailItem(
-                            Icons.inventory_2_outlined,
-                            "Remplissage",
-                            "${machine['current_fill']?.toString() ?? '0'} kg",
-                            isDark,
-                          ),
-                          _detailItem(
-                            Icons.info_outline,
-                            "Statut",
-                            _mapBackendToUI(currentBackendStatus).toUpperCase(),
-                            isDark,
-                          ),
-
-                          // --- NOUVEAU : LIEN PHOTO ---
-                          _detailPhotoLink(
-                            machine['photo_url']?.toString(),
-                            isDark,
-                          ),
-
+                          _detailItem(Icons.map_outlined, "Wilaya",
+                              machine['city']?.toString() ?? 'Inconnu', isDark),
+                          _detailItem(Icons.location_on_outlined, "Adresse",
+                              machine['address']?.toString() ?? 'N/A', isDark),
+                          _detailItem(Icons.inventory_2_outlined, "Remplissage",
+                              "${machine['current_fill']?.toString() ?? '0'} kg", isDark),
+                          _detailItem(Icons.info_outline, "Statut",
+                              _mapBackendToUI(currentBackendStatus).toUpperCase(), isDark),
+                          _detailPhotoLink(machine['photo_url']?.toString(), isDark),
                           _detailItem(
                             Icons.auto_awesome_outlined,
                             "Précision AI",
                             "${(double.tryParse(machine['ai_accuracy']?.toString() ?? '0') ?? 0).toStringAsFixed(1)}%",
                             isDark,
                           ),
-                          _detailItem(
-                            Icons.calendar_today_outlined,
-                            "Créé le",
-                            _formatDate(machine['created_at']),
-                            isDark,
-                          ),
-                          _detailItem(
-                            Icons.history_outlined,
-                            "Modifié le",
-                            _formatDate(machine['updated_at']),
-                            isDark,
-                          ),
+                          _detailItem(Icons.calendar_today_outlined, "Créé le",
+                              _formatDate(machine['created_at']), isDark),
+                          _detailItem(Icons.history_outlined, "Modifié le",
+                              _formatDate(machine['updated_at']), isDark),
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 20),
                     const Divider(),
                     const SizedBox(height: 10),
@@ -613,8 +529,6 @@ class _MachinesPageState extends State<MachinesPage> {
                       ),
                     ),
                     const SizedBox(height: 12),
-
-                    // --- MODERN STATUS CHIPS ---
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: ["online", "offline", "en panne"].map((s) {
@@ -660,6 +574,296 @@ class _MachinesPageState extends State<MachinesPage> {
           );
         },
       ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 📜 HISTORIQUE DES NOTIFICATIONS D'UNE MACHINE
+  // ─────────────────────────────────────────────────────────────
+  void _showMachineHistory(String machineMongoId, String machineName) {
+    final notifProvider =
+        Provider.of<NotificationProvider>(context, listen: false);
+    final isDark =
+        Provider.of<SettingsProvider>(context, listen: false).isDarkMode;
+
+    // Future lancé une seule fois pour éviter les re-calls lors de setState
+    final historyFuture = notifProvider.fetchMachineHistory(machineMongoId);
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        String typeFilter = "Tous";
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Dialog(
+              backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Container(
+                width: 480,
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ── HEADER ──
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Historique Alertes",
+                              style: GoogleFonts.outfit(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: isDark ? Colors.white : darkGreen,
+                              ),
+                            ),
+                            Text(
+                              machineName,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: isDark ? Colors.white54 : Colors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                        IconButton(
+                          onPressed: () => Navigator.pop(dialogContext),
+                          icon: Icon(
+                            Icons.close,
+                            color: isDark ? Colors.white54 : Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // ── FILTRES PAR TYPE ──
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: ["Tous", "En panne", "Remplissage"].map((f) {
+                          final bool sel = typeFilter == f;
+                          final Color chipColor = f == "En panne"
+                              ? Colors.red
+                              : f == "Remplissage"
+                                  ? Colors.orange
+                                  : Colors.green;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(
+                                f,
+                                style: TextStyle(
+                                  color: sel ? Colors.white : chipColor,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              selected: sel,
+                              selectedColor: chipColor,
+                              backgroundColor: chipColor.withOpacity(0.1),
+                              side: BorderSide(color: chipColor.withOpacity(0.4)),
+                              showCheckmark: false,
+                              onSelected: (_) =>
+                                  setModalState(() => typeFilter = f),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Divider(
+                      height: 1,
+                      color: isDark ? Colors.white12 : Colors.grey[300],
+                    ),
+                    const SizedBox(height: 8),
+
+                    // ── LISTE NOTIFICATIONS ──
+                    FutureBuilder<List<dynamic>>(
+                      future: historyFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 40),
+                            child: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        if (snapshot.hasError) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 30),
+                            child: Center(
+                              child: Text(
+                                "Erreur de chargement",
+                                style: TextStyle(color: Colors.red[400]),
+                              ),
+                            ),
+                          );
+                        }
+
+                        final all = snapshot.data ?? [];
+                        final filtered = all.where((n) {
+                          if (typeFilter == "Tous") return true;
+                          final t = (n['type'] ?? '').toString().toLowerCase();
+                          if (typeFilter == "En panne") return t.contains('panne');
+                          if (typeFilter == "Remplissage")
+                            return t.contains('remplissage');
+                          return true;
+                        }).toList();
+
+                        if (filtered.isEmpty) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 35),
+                            child: Center(
+                              child: Column(
+                                children: [
+                                  Icon(Icons.history_toggle_off,
+                                      size: 44, color: Colors.grey[400]),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    "Aucun historique",
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.grey,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        }
+
+                        return ConstrainedBox(
+                          constraints: const BoxConstraints(maxHeight: 360),
+                          child: ListView.separated(
+                            shrinkWrap: true,
+                            itemCount: filtered.length,
+                            separatorBuilder: (_, __) => Divider(
+                              height: 1,
+                              color: isDark ? Colors.white12 : Colors.grey[200],
+                            ),
+                            itemBuilder: (context, i) {
+                              final n = filtered[i];
+                              final String type =
+                                  (n['type'] ?? 'info').toString();
+                              final String msg = n['message'] ?? '';
+                              final String status =
+                                  (n['status'] ?? 'envoyée').toString();
+                              final bool isRead = status == 'lue';
+
+                              IconData ico = Icons.notifications_outlined;
+                              Color icoColor = Colors.blue;
+                              if (type.contains('panne')) {
+                                ico = Icons.error_outline;
+                                icoColor = Colors.red;
+                              } else if (type.contains('remplissage')) {
+                                ico = Icons.battery_charging_full_outlined;
+                                icoColor = Colors.orange;
+                              }
+
+                              return Padding(
+                                padding:
+                                    const EdgeInsets.symmetric(vertical: 8),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 18,
+                                      backgroundColor: icoColor.withOpacity(0.1),
+                                      child: Icon(ico, color: icoColor, size: 18),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                type.toUpperCase(),
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 6,
+                                                  vertical: 2,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: isRead
+                                                      ? Colors.green
+                                                          .withOpacity(0.12)
+                                                      : Colors.orange
+                                                          .withOpacity(0.12),
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                ),
+                                                child: Text(
+                                                  isRead ? "TRAITÉ" : "EN ATTENTE",
+                                                  style: TextStyle(
+                                                    color: isRead
+                                                        ? Colors.green
+                                                        : Colors.orange,
+                                                    fontSize: 9,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            msg,
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: isDark
+                                                  ? Colors.white70
+                                                  : Colors.black87,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Row(
+                                            children: [
+                                              const Icon(Icons.access_time,
+                                                  size: 10, color: Colors.grey),
+                                              const SizedBox(width: 4),
+                                              Text(
+                                                _formatDate(n['created_at']),
+                                                style: const TextStyle(
+                                                  fontSize: 10,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -723,13 +927,10 @@ class _MachinesPageState extends State<MachinesPage> {
   }
 
   Widget _detailPhotoLink(String? url, bool isDark) {
-    // Lien commun pour toutes les machines fourni par l'utilisateur
     final String commonDriveLink =
         "https://drive.google.com/drive/folders/1JXPNgvA3AEIoSYj5CqVkeVlgIOkUv5s5?usp=drive_link";
-
-    // On utilise le lien en base s'il existe, sinon le lien commun
     String finalUrl = (url != null && url.isNotEmpty) ? url : commonDriveLink;
-    String displayUrl = "Ouvrir Drive"; // Texte plus court pour l'affichage
+    String displayUrl = "Ouvrir Drive";
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8.0),
@@ -757,7 +958,7 @@ class _MachinesPageState extends State<MachinesPage> {
             onTap: () => _launchURL(finalUrl),
             child: Text(
               displayUrl,
-              style: TextStyle(
+              style: const TextStyle(
                 color: Colors.blue,
                 fontSize: 13,
                 fontWeight: FontWeight.bold,
@@ -773,9 +974,7 @@ class _MachinesPageState extends State<MachinesPage> {
   String _formatDate(dynamic date) {
     if (date == null) return "N/A";
     try {
-      return DateFormat(
-        'dd/MM/yyyy HH:mm',
-      ).format(DateTime.parse(date.toString()));
+      return DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(date.toString()));
     } catch (e) {
       return date.toString();
     }
@@ -948,12 +1147,11 @@ class _MachinesPageState extends State<MachinesPage> {
                   itemCount: filtered.length,
                   itemBuilder: (context, i) {
                     final m = filtered[i];
-                    final mId = (m['machine_id'] ?? m['id'] ?? 'S/N')
-                        .toString();
+                    final mId =
+                        (m['machine_id'] ?? m['id'] ?? 'S/N').toString();
                     final mName = m['name'] ?? 'Inconnu';
-                    final mStatus = (m['status'] ?? 'actif')
-                        .toString()
-                        .toLowerCase();
+                    final mStatus =
+                        (m['status'] ?? 'actif').toString().toLowerCase();
                     return Card(
                       color: isDark ? const Color(0xFF1E293B) : Colors.white,
                       margin: const EdgeInsets.only(bottom: 12),
@@ -962,16 +1160,15 @@ class _MachinesPageState extends State<MachinesPage> {
                       ),
                       child: ListTile(
                         leading: CircleAvatar(
-                          backgroundColor: _getStatusColor(
-                            mStatus,
-                          ).withOpacity(0.1),
+                          backgroundColor:
+                              _getStatusColor(mStatus).withOpacity(0.1),
                           child: Icon(
                             Icons.precision_manufacturing,
                             color: _getStatusColor(mStatus),
                           ),
                         ),
                         title: Text(
-                          "$mName",
+                          mName,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             color: isDark ? Colors.white : Colors.black,
@@ -990,6 +1187,21 @@ class _MachinesPageState extends State<MachinesPage> {
                             TextButton(
                               onPressed: () => _showMachineDetails(mId, m),
                               child: const Text("Consulter"),
+                            ),
+                            // ── ICÔNE HISTORIQUE NOTIFICATIONS ──
+                            IconButton(
+                              icon: Icon(
+                                Icons.history,
+                                color: isDark
+                                    ? Colors.white54
+                                    : Colors.blueGrey,
+                                size: 22,
+                              ),
+                              tooltip: "Historique notifications",
+                              onPressed: () => _showMachineHistory(
+                                m['_id']?.toString() ?? mId,
+                                mName,
+                              ),
                             ),
                             IconButton(
                               icon: const Icon(
