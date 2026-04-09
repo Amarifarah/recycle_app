@@ -348,7 +348,31 @@ class _DashboardHomeState extends State<DashboardHome> {
                                   Icons.check_circle_outline,
                                   color: Colors.green,
                                 ),
-                                onPressed: () => provider.markAsRead(id),
+                                onPressed: () async {
+                                  final String typeLower = type.toLowerCase();
+                                  if (typeLower.contains('panne')) {
+                                    String? tech = await _showInputDialog(context, "Nom du technicien");
+                                    if (tech != null && tech.isNotEmpty) {
+                                      bool ok = await provider.markAsRead(id, technician: tech);
+                                      if (!ok && context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Échec du traitement côté serveur")));
+                                      }
+                                    }
+                                  } else if (typeLower.contains('remplissage')) {
+                                    String? col = await _showInputDialog(context, "Nom du collecteur");
+                                    if (col != null && col.isNotEmpty) {
+                                      bool ok = await provider.markAsRead(id, collector: col);
+                                      if (!ok && context.mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Échec du traitement côté serveur")));
+                                      }
+                                    }
+                                  } else {
+                                    bool ok = await provider.markAsRead(id);
+                                    if (!ok && context.mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Échec du traitement côté serveur")));
+                                    }
+                                  }
+                                },
                               ),
                             ),
                           );
@@ -363,6 +387,35 @@ class _DashboardHomeState extends State<DashboardHome> {
               ],
             );
           },
+        );
+      },
+    );
+  }
+
+  Future<String?> _showInputDialog(BuildContext context, String title) {
+    TextEditingController controller = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Text(title, style: const TextStyle(fontSize: 16)),
+          content: TextField(
+            controller: controller,
+            decoration: const InputDecoration(
+              hintText: "Saisir le nom",
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Annuler"),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, controller.text),
+              child: const Text("Traiter"),
+            ),
+          ],
         );
       },
     );

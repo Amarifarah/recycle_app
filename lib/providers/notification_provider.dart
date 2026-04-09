@@ -60,12 +60,20 @@ class NotificationProvider with ChangeNotifier {
   }
 
   // 3. Marquer une notification comme traitée → la retire IMMÉDIATEMENT du Dashboard
-  Future<bool> markAsRead(String id) async {
+  Future<bool> markAsRead(String id, {String? technician, String? collector}) async {
     try {
+      final body = <String, dynamic>{"status": "traitée"};
+      if (technician != null && technician.isNotEmpty) {
+        body["technician"] = technician;
+      }
+      if (collector != null && collector.isNotEmpty) {
+        body["collector"] = collector;
+      }
+
       final response = await http.put(
         Uri.parse('$baseUrl/notif/status/$id'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({"status": "traitée"}),
+        body: json.encode(body),
       );
       if (response.statusCode == 200) {
         _pendingNotifications.removeWhere((n) => n['_id'] == id);

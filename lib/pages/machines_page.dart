@@ -831,6 +831,28 @@ class _MachinesPageState extends State<MachinesPage> {
                                                   : Colors.black87,
                                             ),
                                           ),
+                                          if (n['technician'] != null && n['technician'].toString().isNotEmpty) ...[
+                                            const SizedBox(height: 3),
+                                            Text(
+                                              "Technicien: ${n['technician']}",
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: isDark ? Colors.blue[300] : Colors.blue[700],
+                                              ),
+                                            ),
+                                          ],
+                                          if (n['collector'] != null && n['collector'].toString().isNotEmpty) ...[
+                                            const SizedBox(height: 3),
+                                            Text(
+                                              "Collecteur: ${n['collector']}",
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
+                                                color: isDark ? Colors.orange[300] : Colors.orange[800],
+                                              ),
+                                            ),
+                                          ],
                                           const SizedBox(height: 3),
                                           Row(
                                             children: [
