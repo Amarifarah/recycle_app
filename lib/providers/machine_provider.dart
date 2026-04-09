@@ -32,7 +32,7 @@ class MachineProvider with ChangeNotifier {
     // notifyListeners();
 
     try {
-      final response = await http.get(Uri.parse('$baseUrl/machine/search'));
+      final response = await http.get(Uri.parse('$baseUrl/machine'));
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         _machines = data.map((json) => json as Map<String, dynamic>).toList();
