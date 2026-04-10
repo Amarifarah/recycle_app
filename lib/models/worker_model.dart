@@ -65,6 +65,7 @@ class Worker {
       city:            json['city'] ?? '',
       createdAt:       DateTime.tryParse(json['created_at'] ?? '') ?? DateTime.now(),
       updatedAt:       DateTime.tryParse(json['updated_at'] ?? '') ?? DateTime.now(),
+      status:           _parseStatus(json['status']),
       assignedMachines: json['assignedMachines'] ?? 0,
       tasksCompleted:   json['tasksCompleted'] ?? 0,
       fillRate:         json['fillRate'],
@@ -72,6 +73,19 @@ class Worker {
           .map((t) => WorkerTask.fromJson(t))
           .toList(),
     );
+  }
+
+  static WorkerStatus _parseStatus(String? status) {
+    if (status == null) return WorkerStatus.available;
+    final s = status.toLowerCase();
+    if (s == 'actif' || s == 'available' || s == 'active') {
+      return WorkerStatus.available;
+    } else if (s.contains('intervention') || s.contains('tournée') || s == 'busy') {
+      return WorkerStatus.busy;
+    } else if (s == 'offline' || s == 'hors ligne') {
+      return WorkerStatus.offline;
+    }
+    return WorkerStatus.available;
   }
 
   // Vers JSON (envoi API)
