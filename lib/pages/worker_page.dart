@@ -432,21 +432,27 @@ class _FilterChip extends StatelessWidget {
 //  WIDGET : WORKER CARD
 // ─────────────────────────────────────────
 
-class _WorkerCard extends StatelessWidget {
+class _WorkerCard extends StatefulWidget {
   final Worker worker;
-
   const _WorkerCard({required this.worker});
 
-  Color get _avatarBg => worker.role == WorkerRole.technicien
+  @override
+  State<_WorkerCard> createState() => _WorkerCardState();
+}
+
+class _WorkerCardState extends State<_WorkerCard> {
+  bool _isUpdating = false;
+
+  Color get _avatarBg => widget.worker.role == WorkerRole.technicien
       ? const Color(0xFFEEEDFE)
       : const Color(0xFFE1F5EE);
 
-  Color get _avatarFg => worker.role == WorkerRole.technicien
+  Color get _avatarFg => widget.worker.role == WorkerRole.technicien
       ? const Color(0xFF3C3489)
       : const Color(0xFF085041);
 
   Color get _statusColor {
-    switch (worker.status) {
+    switch (widget.worker.status) {
       case WorkerStatus.available: return const Color(0xFF639922);
       case WorkerStatus.busy:      return const Color(0xFFBA7517);
       case WorkerStatus.offline:   return const Color(0xFFE24B4A);
@@ -454,12 +460,42 @@ class _WorkerCard extends StatelessWidget {
   }
 
   String get _statusLabel {
-    switch (worker.status) {
+    switch (widget.worker.status) {
       case WorkerStatus.available: return 'Disponible';
       case WorkerStatus.busy:
-        return worker.role == WorkerRole.videur ? 'En tournée' : 'En intervention';
+        return widget.worker.role == WorkerRole.videur ? 'En tournée' : 'En intervention';
       case WorkerStatus.offline: return 'Hors ligne';
     }
+  }
+
+  Future<void> _updateStatus(BuildContext context, String newStatus) async {
+    setState(() => _isUpdating = true);
+    final provider = context.read<WorkerProvider>();
+    final success = await provider.updateStatus(widget.worker.id, newStatus);
+    
+    if (success) {
+      await provider.fetchWorkers(); // Refresh data
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Statut de ${widget.worker.nomcomplet} mis à jour'),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erreur lors de la mise à jour du statut'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+    if (mounted) setState(() => _isUpdating = false);
   }
 
   @override
@@ -483,13 +519,13 @@ class _WorkerCard extends StatelessWidget {
         children: [
           _buildCardHeader(context),
           Divider(height: 24, thickness: 0.5, color: Theme.of(context).dividerColor),
-          _buildInfoRow(context, 'Téléphone', worker.phone ?? 'N/A'),
-          _buildInfoRow(context, 'Ville', worker.city),
-          _buildInfoRow(context, 'Machines', '${worker.assignedMachines}'),
-          _buildInfoRow(context, 'Tâches complétées', '${worker.tasksCompleted}'),
-          if (worker.role == WorkerRole.videur && worker.fillRate != null) ...[
+          _buildInfoRow(context, 'Téléphone', widget.worker.phone ?? 'N/A'),
+          _buildInfoRow(context, 'Ville', widget.worker.city),
+          _buildInfoRow(context, 'Machines', '${widget.worker.assignedMachines}'),
+          _buildInfoRow(context, 'Tâches complétées', '${widget.worker.tasksCompleted}'),
+          if (widget.worker.role == WorkerRole.videur && widget.worker.fillRate != null) ...[
             const SizedBox(height: 4),
-            _buildFillRate(context, worker.fillRate!),
+            _buildFillRate(context, widget.worker.fillRate!),
           ],
           Divider(height: 20, thickness: 0.5, color: Theme.of(context).dividerColor),
           _buildTasksSection(context),
@@ -508,7 +544,7 @@ class _WorkerCard extends StatelessWidget {
           radius: 21,
           backgroundColor: _avatarBg,
           child: Text(
-            worker.initials,
+            widget.worker.initials,
             style: TextStyle(
                 fontSize: 13, fontWeight: FontWeight.w600, color: _avatarFg),
           ),
@@ -518,12 +554,12 @@ class _WorkerCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(worker.nomcomplet,
+              Text(widget.worker.nomcomplet,
                   style: const TextStyle(
                       fontSize: 15, fontWeight: FontWeight.w600)),
               const SizedBox(height: 2),
               Text(
-                worker.role == WorkerRole.videur
+                widget.worker.role == WorkerRole.videur
                     ? 'Videur de bacs'
                     : 'Technicien de maintenance',
                 style: TextStyle(fontSize: 12, color: Colors.grey[500]),
@@ -534,19 +570,31 @@ class _WorkerCard extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 7,
-                  height: 7,
-                  decoration: BoxDecoration(
-                      color: _statusColor, shape: BoxShape.circle),
-                ),
-                const SizedBox(width: 4),
-                Text(_statusLabel,
-                    style: TextStyle(fontSize: 11, color: Colors.grey[500])),
-              ],
+            _isUpdating 
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.green))
+              : PopupMenuButton<String>(
+                  tooltip: 'Changer le statut',
+                  onSelected: (val) => _updateStatus(context, val),
+                  itemBuilder: (context) => [
+                    _buildStatusMenuItem('actif', 'Disponible', const Color(0xFF639922)),
+                    _buildStatusMenuItem('en intervention', 'Occupé', const Color(0xFFBA7517)),
+                    _buildStatusMenuItem('inactif', 'Hors ligne', const Color(0xFFE24B4A)),
+                  ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 7,
+                        height: 7,
+                        decoration: BoxDecoration(
+                            color: _statusColor, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(_statusLabel,
+                          style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                      Icon(Icons.arrow_drop_down, size: 14, color: Colors.grey[400]),
+                    ],
+                  ),
             ),
             const SizedBox(height: 4),
             Container(
@@ -556,7 +604,7 @@ class _WorkerCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                worker.role == WorkerRole.videur ? 'Videur' : 'Technicien',
+                widget.worker.role == WorkerRole.videur ? 'Videur' : 'Technicien',
                 style: TextStyle(fontSize: 11, color: _avatarFg),
               ),
             ),
@@ -625,7 +673,7 @@ class _WorkerCard extends StatelessWidget {
                 letterSpacing: 0.5,
                 color: Colors.grey[500])),
         const SizedBox(height: 8),
-        ...worker.tasks.map((t) => _TaskItem(task: t)),
+        ...widget.worker.tasks.map((t) => _TaskItem(task: t)),
       ],
     );
   }
@@ -638,7 +686,7 @@ class _WorkerCard extends StatelessWidget {
       children: [
         Expanded(
           child: OutlinedButton(
-            onPressed: () => state?._showWorkerProfile(context, worker),
+            onPressed: () => state?._showWorkerProfile(context, widget.worker),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 8),
               side: BorderSide(color: Theme.of(context).dividerColor),
@@ -652,7 +700,7 @@ class _WorkerCard extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           child: OutlinedButton(
-            onPressed: () => state?._showWorkerHistory(context, worker),
+            onPressed: () => state?._showWorkerHistory(context, widget.worker),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 8),
               side: BorderSide(color: Theme.of(context).dividerColor),
@@ -664,6 +712,19 @@ class _WorkerCard extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  PopupMenuItem<String> _buildStatusMenuItem(String value, String label, Color color) {
+    return PopupMenuItem<String>(
+      value: value,
+      child: Row(
+        children: [
+          Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 10),
+          Text(label, style: const TextStyle(fontSize: 13)),
+        ],
+      ),
     );
   }
 }

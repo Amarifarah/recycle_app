@@ -82,7 +82,7 @@ class Worker {
       return WorkerStatus.available;
     } else if (s.contains('intervention') || s.contains('tournée') || s == 'busy') {
       return WorkerStatus.busy;
-    } else if (s == 'offline' || s == 'hors ligne') {
+    } else if (s == 'offline' || s == 'hors ligne' || s == 'inactif') {
       return WorkerStatus.offline;
     }
     return WorkerStatus.available;
