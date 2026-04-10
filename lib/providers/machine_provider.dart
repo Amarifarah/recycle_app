@@ -5,11 +5,13 @@ import 'dart:convert';
 class MachineProvider with ChangeNotifier {
   List<Map<String, dynamic>> _machines = [];
   List<Map<String, dynamic>> _recycledProducts = [];
+  Map<String, dynamic>? _analyticsData;
   bool _isLoading = false;
   String? _error;
 
   List<Map<String, dynamic>> get machines => _machines;
   List<Map<String, dynamic>> get recycledProducts => _recycledProducts;
+  Map<String, dynamic>? get analyticsData => _analyticsData;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
@@ -164,5 +166,43 @@ class MachineProvider with ChangeNotifier {
       print("Erreur update status: $e");
     }
     return false;
+  }
+  // 6. Récupérer les données Analytics complètes (avec Filtres)
+  Future<void> fetchAnalytics({String? city, String? period}) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+
+    try {
+      // Construction de l'URL avec paramètres si présents
+      String url = '$baseUrl/analytics';
+      List<String> params = [];
+      
+      if (city != null && city != 'All' && city != 'all') {
+        params.add('city=${Uri.encodeComponent(city)}');
+      }
+      if (period != null) {
+        params.add('period=$period');
+      }
+      
+      if (params.isNotEmpty) {
+        url += '?${params.join('&')}';
+      }
+
+      print("📡 DEBUG FETCH ANALYTICS URL: $url");
+      final response = await http.get(Uri.parse(url));
+      print("📡 DEBUG FETCH ANALYTICS: Code ${response.statusCode}, Body: ${response.body}");
+      
+      if (response.statusCode == 200) {
+        _analyticsData = json.decode(response.body);
+      } else {
+        _error = "Erreur Analytics: ${response.statusCode}";
+      }
+    } catch (e) {
+      _error = "Erreur réseau: $e";
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 }

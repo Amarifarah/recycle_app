@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
 import '../models/worker_model.dart';
 import '../providers/settings_provider.dart';
 import '../providers/worker_provider.dart';
@@ -46,12 +47,7 @@ class _WorkerPageState extends State<WorkerPage> {
     }).toList();
   }
 
-  int get _techCount => context.read<WorkerProvider>().workers.where((w) => w.role == WorkerRole.technicien).length;
-  int get _videurCount => context.read<WorkerProvider>().workers.where((w) => w.role == WorkerRole.videur).length;
-  int get _pendingTasks => context.read<WorkerProvider>().workers
-      .expand((w) => w.tasks)
-      .where((t) => t.badgeType != TaskBadgeType.done)
-      .length;
+
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +81,6 @@ class _WorkerPageState extends State<WorkerPage> {
                         itemCount: _filtered.length,
                         itemBuilder: (_, i) => _WorkerCard(
                           worker: _filtered[i],
-                          onAssign: () => _showAssignDialog(context, _filtered[i]),
                         ),
                       ),
               ),
@@ -118,7 +113,7 @@ class _WorkerPageState extends State<WorkerPage> {
               ),
               const SizedBox(height: 4),
               Text(
-                'Techniciens & videurs assignés aux machines',
+                'Liste des techniciens et videurs',
                 style: TextStyle(color: Colors.grey[500], fontSize: 14),
               ),
             ],
@@ -312,10 +307,6 @@ class _WorkerPageState extends State<WorkerPage> {
     showDialog(context: context, builder: (_) => const _AddWorkerDialog());
   }
 
-  void _showAssignDialog(BuildContext context, Worker w) {
-    showDialog(context: context, builder: (_) => _AssignTaskDialog(worker: w));
-  }
-
   void _showWorkerProfile(BuildContext context, Worker w) {
     showModalBottomSheet(
       context: context,
@@ -443,9 +434,8 @@ class _FilterChip extends StatelessWidget {
 
 class _WorkerCard extends StatelessWidget {
   final Worker worker;
-  final VoidCallback onAssign;
 
-  const _WorkerCard({required this.worker, required this.onAssign});
+  const _WorkerCard({required this.worker});
 
   Color get _avatarBg => worker.role == WorkerRole.technicien
       ? const Color(0xFFEEEDFE)
@@ -659,7 +649,7 @@ class _WorkerCard extends StatelessWidget {
                 style: TextStyle(fontSize: 12, color: Colors.grey[600])),
           ),
         ),
-        const SizedBox(width: 8),
+        const SizedBox(width: 12),
         Expanded(
           child: OutlinedButton(
             onPressed: () => state?._showWorkerHistory(context, worker),
@@ -671,21 +661,6 @@ class _WorkerCard extends StatelessWidget {
             ),
             child: Text('Historique',
                 style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: ElevatedButton(
-            onPressed: onAssign,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1A1A18),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              elevation: 0,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8)),
-            ),
-            child: const Text('Assigner', style: TextStyle(fontSize: 12)),
           ),
         ),
       ],
@@ -1023,79 +998,7 @@ class _RoleBtn extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────
-//  DIALOG : ASSIGNER UNE TÂCHE
-// ─────────────────────────────────────────
 
-class _AssignTaskDialog extends StatefulWidget {
-  final Worker worker;
-
-  const _AssignTaskDialog({required this.worker});
-
-  @override
-  State<_AssignTaskDialog> createState() => _AssignTaskDialogState();
-}
-
-class _AssignTaskDialogState extends State<_AssignTaskDialog> {
-  final List<String> _machines = ['M-001', 'M-002', 'M-003', 'M-004', 'M-005'];
-  final Set<String> _selected = {};
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: Theme.of(context).cardColor,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      title: Text(
-        'Assigner à ${widget.worker.nomcomplet}',
-        style: GoogleFonts.outfit(fontSize: 17, fontWeight: FontWeight.w600),
-      ),
-      content: SizedBox(
-        width: 360,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: _machines
-              .map((m) => _MachineSelectRow(
-                    machine: m,
-                    isVideur: widget.worker.role == WorkerRole.videur,
-                    selected: _selected.contains(m),
-                    onToggle: () => setState(() {
-                      _selected.contains(m)
-                          ? _selected.remove(m)
-                          : _selected.add(m);
-                    }),
-                  ))
-              .toList(),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: Text('Annuler',
-              style: TextStyle(color: Colors.grey[600])),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            Navigator.pop(context);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('${_selected.length} machine(s) assignée(s) à ${widget.worker.nomcomplet}'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1A1A18),
-            foregroundColor: Colors.white,
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8)),
-          ),
-          child: const Text('Confirmer', style: TextStyle(fontSize: 13)),
-        ),
-      ],
-    );
-  }
-}
 
 // ─────────────────────────────────────────
 //  NEW WIDGET : WORKER PROFILE SHEET
@@ -1186,102 +1089,184 @@ class _WorkerHistoryDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<WorkerProvider>(context, listen: false);
+
     return AlertDialog(
       backgroundColor: Theme.of(context).cardColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text('Historique — ${worker.nomcomplet}', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
+      title: Text('Historique — ${worker.nomcomplet}',
+          style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
       content: SizedBox(
-        width: 400,
-        height: 300,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.history_rounded, size: 60, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            const Text('Aucune activité récente', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(
-              'Les tâches terminées et les interventions passées apparaîtront ici.',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
-            ),
-          ],
+        width: 450,
+        height: 400,
+        child: FutureBuilder<Map<String, dynamic>?>(
+          future: provider.fetchWorkerHistory(worker.id),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: Colors.green),
+                  SizedBox(height: 16),
+                  Text('Chargement de l\'historique...', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                ],
+              );
+            }
+
+            if (snapshot.hasError || snapshot.data == null) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text("Erreur de chargement",
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    const Text("Impossible de récupérer l'historique.",
+                        textAlign: TextAlign.center,
+                        style: TextStyle(fontSize: 13, color: Colors.grey)),
+                  ],
+                ),
+              );
+            }
+
+            final data = snapshot.data!;
+            final List<dynamic> history = data['history'] ?? [];
+            final int total = data['total_interventions'] ?? 0;
+
+            if (history.isEmpty) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(Icons.history_rounded, size: 60, color: Colors.grey[300]),
+                  const SizedBox(height: 16),
+                  const Text('Aucune activité récente',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Les tâches terminées et les interventions passées apparaîtront ici.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+                  ),
+                ],
+              );
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '$total intervention(s) au total',
+                      style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.separated(
+                    itemCount: history.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 10),
+                    itemBuilder: (context, i) {
+                      final item = history[i];
+                      final dateStr = item['date'] ?? '';
+                      DateTime? date;
+                      String formattedDate = 'Date inconnue';
+                      if (dateStr.isNotEmpty) {
+                        date = DateTime.tryParse(dateStr);
+                        if (date != null) {
+                          formattedDate = DateFormat('dd MMM yyyy, HH:mm').format(date.toLocal());
+                        }
+                      }
+
+                      final type = item['type_intervention'] ?? 'intervention';
+                      final machine = item['machine_name'] ?? 'Machine inconnue';
+
+                      IconData typeIcon = Icons.build_circle_outlined;
+                      Color typeColor = const Color(0xFF3C3489);
+
+                      if (type.toString().toLowerCase().contains('remplissage')) {
+                        typeIcon = Icons.local_shipping_outlined;
+                        typeColor = const Color(0xFFBA7517);
+                      } else if (type.toString().toLowerCase().contains('panne')) {
+                        typeIcon = Icons.error_outline;
+                        typeColor = const Color(0xFFE24B4A);
+                      }
+
+                      return Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).dividerColor.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: Theme.of(context).dividerColor.withOpacity(0.5)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: typeColor.withOpacity(0.1),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(typeIcon, color: typeColor, size: 20),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    type.toString().toUpperCase(),
+                                    style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: typeColor,
+                                        letterSpacing: 0.5),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    machine,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold, fontSize: 13),
+                                  ),
+                                  Text(
+                                    formattedDate,
+                                    style: TextStyle(
+                                        fontSize: 11, color: Colors.grey[500]),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(Icons.chevron_right,
+                                size: 16, color: Colors.grey[400]),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            );
+          },
         ),
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fermer')),
+        TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Fermer', style: TextStyle(color: Colors.grey[600]))),
       ],
     );
   }
 }
-
-class _MachineSelectRow extends StatelessWidget {
-  final String machine;
-  final bool isVideur;
-  final bool selected;
-  final VoidCallback onToggle;
-
-  const _MachineSelectRow({
-    required this.machine,
-    required this.isVideur,
-    required this.selected,
-    required this.onToggle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onToggle,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: selected
-              ? const Color(0xFF1A1A18).withOpacity(0.04)
-              : Theme.of(context).scaffoldBackgroundColor,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected
-                ? const Color(0xFF1A1A18)
-                : Theme.of(context).dividerColor,
-            width: selected ? 1 : 0.8,
-          ),
-        ),
-        child: Row(
-          children: [
-            Text(machine,
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600)),
-            const SizedBox(width: 10),
-            Text(
-              isVideur ? 'Vider les bacs' : 'Vérifier la panne',
-              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
-            ),
-            const Spacer(),
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: selected
-                    ? const Color(0xFF1A1A18)
-                    : Colors.transparent,
-                border: Border.all(
-                  color: selected
-                      ? const Color(0xFF1A1A18)
-                      : Theme.of(context).dividerColor,
-                  width: 0.8,
-                ),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: selected
-                  ? const Icon(Icons.check, size: 13, color: Colors.white)
-                  : null,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+

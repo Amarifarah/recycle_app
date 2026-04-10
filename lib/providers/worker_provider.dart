@@ -136,4 +136,52 @@ class WorkerProvider with ChangeNotifier {
       print("Erreur fetch dashboard stats: $e");
     }
   }
+
+  // 6. Assigner des machines à un travailleur (Réel)
+  Future<bool> assignMachine(String workerId, List<String> machineIds, {String taskType = "maintenance"}) async {
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrl/worker/assign'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          "workerId": workerId,
+          "machineIds": machineIds,
+          "taskType": taskType,
+        }),
+      );
+
+      print("📡 DEBUG ASSIGN Worker: Code ${response.statusCode}, Body: ${response.body}");
+      
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        // Optionnel : recharger les données pour voir les changements
+        await fetchWorkers();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print("Erreur assignation: $e");
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+  // 7. Récupérer l'historique d'un travailleur (Réel)
+  Future<Map<String, dynamic>?> fetchWorkerHistory(String workerId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/worker/history/$workerId'));
+      print("📡 DEBUG FETCH WORKER HISTORY: Code ${response.statusCode}, Body: ${response.body}");
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+      return null;
+    } catch (e) {
+      print("Erreur fetch worker history: $e");
+      return null;
+    }
+  }
 }

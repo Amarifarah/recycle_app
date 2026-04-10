@@ -14,52 +14,19 @@ class AnalyticsPage extends StatefulWidget {
 }
 
 class _AnalyticsPageState extends State<AnalyticsPage> {
-  String _selectedPeriod = '7D'; // Options: '1D', '7D', '30D'
-  String _selectedCity = 'All';  // Options: 'All', 'Oran', 'Alger', etc.
+  String _selectedPeriod = '7D'; // Options: '7D', '14D', '30D', '90D'
+  String _selectedCity = 'All';  // Options: 'All' or city name
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final p = Provider.of<MachineProvider>(context, listen: false);
-      p.fetchMachines();
-      p.fetchRecycledProducts();
+      p.fetchAnalytics(city: _selectedCity, period: _selectedPeriod);
     });
   }
 
-  List<MachineData> _parseMachines(List<Map<String, dynamic>> rawMachines) {
-    List<MachineData> mapped = [];
-    for (var machine in rawMachines) {
-      double plastic = 0.0;
-      double alu = 0.0;
-      double totalFill = 0.0;
-      double totalCap = 0.0;
-      
-      if (machine['recyclingBins'] != null) {
-        for (var bin in machine['recyclingBins']) {
-          double currentFill = (bin['current_fill_kg'] ?? 0).toDouble();
-          double cap = (bin['capacity_kg'] ?? 0).toDouble();
-
-          if (bin['type'] == 'PET') plastic += currentFill;
-          if (bin['type'] == 'ALU') alu += currentFill;
-
-          totalFill += currentFill;
-          totalCap += cap;
-        }
-      }
-
-      double fillLevel = (totalCap > 0) ? (totalFill / totalCap) : 0.0;
-      
-      mapped.add(MachineData(
-        id: machine['machine_id']?.toString() ?? machine['_id']?.toString() ?? "Inconnu",
-        wilaya: machine['city']?.toString() ?? "Inconnu",
-        plasticQty: plastic,
-        aluminumQty: alu,
-        fillLevel: fillLevel,
-      ));
-    }
-    return mapped;
-  }
+  // Plus besoin de _parseMachines car le serveur fait le travail
 
   @override
   Widget build(BuildContext context) {
@@ -70,43 +37,35 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       body: Consumer<MachineProvider>(
         builder: (context, provider, child) {
           if (provider.isLoading) {
-            return Center(
-              child: CircularProgressIndicator(color: Theme.of(context).primaryColor)
-            );
+            return const Center(child: CircularProgressIndicator(color: Colors.green));
           }
 
-          final List<MachineData> machines = _parseMachines(provider.machines)
-              .where((m) => _selectedCity == 'All' || m.wilaya == _selectedCity)
-              .toList();
-
-          if (machines.isEmpty) {
+          final data = provider.analyticsData;
+          if (data == null) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Text("Aucune machine trouvée."),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: () {
-                      provider.fetchMachines();
-                      provider.fetchRecycledProducts();
-                    },
-                    icon: const Icon(Icons.refresh),
-                    label: const Text("Réessayer"),
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                  ),
+                   Icon(Icons.analytics_outlined, size: 64, color: Colors.grey[300]),
+                   const SizedBox(height: 16),
+                   const Text("Données analytics non disponibles"),
+                   const SizedBox(height: 16),
+                   ElevatedButton(
+                     onPressed: () => provider.fetchAnalytics(),
+                     style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                     child: const Text("Réessayer"),
+                   )
                 ],
               ),
             );
           }
 
-          double totalPlastic = machines.fold(0, (sum, m) => sum + m.plasticQty);
-          double totalAluminum = machines.fold(0, (sum, m) => sum + m.aluminumQty);
-          int fullMachines = machines.where((m) => m.fillLevel > 0.8).length;
-
+          final cards = data['cards'] ?? {};
+          final inventaire = (data['inventaire'] as List? ?? []);
+          
           return CustomScrollView(
             slivers: [
-              _buildAppBar(context, machines, provider.machines),
+              _buildAppBar(context, provider),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -118,14 +77,14 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       _buildFilterBar(context, settings),
                       const SizedBox(height: 32),
                       
-                      _buildKpiGrid(context, settings, machines.length, fullMachines, totalPlastic, totalAluminum),
+                      _buildKpiGrid(context, settings, cards),
                       
                       const SizedBox(height: 32),
                       
                       _buildPremiumCard(
                         context,
-                        title: "Tendance de Recyclage (7 derniers jours)",
-                        child: _buildTrendChart(context, provider.recycledProducts),
+                        title: "Tendance de Recyclage ($_selectedPeriod)",
+                        child: _buildTrendChart(context, data['tendance_7_jours'] ?? []),
                       ),
                       
                       const SizedBox(height: 32),
@@ -136,7 +95,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                             child: _buildPremiumCard(
                               context,
                               title: settings.translate('recyc_distribution'),
-                              child: _buildPieChart(settings, totalPlastic, totalAluminum),
+                              child: _buildPieChart(settings, data['recyc_distribution'] ?? {}),
                             ),
                           ),
                         ],
@@ -147,18 +106,18 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       _buildPremiumCard(
                         context,
                         title: "Volume par Wilaya (kg)",
-                        child: _buildBarChart(context, machines),
+                        child: _buildBarChart(context, data['volume_par_wilaya'] ?? []),
                       ),
                       
                       const SizedBox(height: 32),
                       
                       _buildSectionTitle(settings.translate('critical_alerts')),
-                      _buildAlerts(context, machines),
+                      _buildAlerts(context, data['alertes_critiques'] ?? []),
                       
                       const SizedBox(height: 32),
                       
                       _buildSectionTitle(settings.translate('detailed_inventory')),
-                      _buildDetailedTable(context, machines),
+                      _buildDetailedTable(context, inventaire.where((m) => _selectedCity == 'All' || (m['city'] == _selectedCity)).toList()),
                       const SizedBox(height: 50),
                     ],
                   ),
@@ -171,8 +130,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  Widget _buildAppBar(BuildContext context, List<MachineData> machines, List<Map<String, dynamic>> rawMachines) {
-    // Liste exhaustive des Wilayas d'Algérie
+  Widget _buildAppBar(BuildContext context, MachineProvider provider) {
     final allWilayas = [
       'All', 'Adrar', 'Chlef', 'Laghouat', 'Oum El Bouaghi', 'Batna', 'Béjaïa', 'Biskra', 
       'Béchar', 'Blida', 'Bouira', 'Tamanrasset', 'Tébessa', 'Tlemcen', 'Tiaret', 'Tizi Ouzou', 
@@ -185,7 +143,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       'El M\'Ghair', 'El Meniaâ', 'Aflou', 'El Abiodh Sidi Cheikh', 'El Aricha', 'El Kantara', 
       'Barika', 'Bou Saâda', 'Bir El Ater', 'Ksar El Boukhari', 'Ksar Chellala', 'Aïn Oussera', 'Messaad'
     ];
-    
+
     return SliverAppBar(
       expandedHeight: 80.0,
       floating: false,
@@ -199,11 +157,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       actions: [
         IconButton(
           icon: const Icon(Icons.refresh, color: Colors.green),
-          onPressed: () {
-            final p = context.read<MachineProvider>();
-            p.fetchMachines();
-            p.fetchRecycledProducts();
-          },
+          onPressed: () => provider.fetchAnalytics(),
         ),
         Padding(
           padding: const EdgeInsets.only(right: 16),
@@ -213,7 +167,10 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               icon: const Icon(Icons.location_on, size: 18, color: Colors.green),
               style: GoogleFonts.outfit(color: Colors.green, fontWeight: FontWeight.bold),
               onChanged: (String? newValue) {
-                if (newValue != null) setState(() => _selectedCity = newValue);
+                if (newValue != null) {
+                  setState(() => _selectedCity = newValue);
+                  provider.fetchAnalytics(city: newValue, period: _selectedPeriod);
+                }
               },
               items: allWilayas.map<DropdownMenuItem<String>>((String value) {
                 return DropdownMenuItem<String>(
@@ -229,8 +186,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   }
 
   Widget _buildFilterBar(BuildContext context, SettingsProvider settings) {
-    final periods = ['1D', '7D', '30D'];
-    final labels = {'1D': 'Aujourd\'hui', '7D': '7 Jours', '30D': '30 Jours'};
+    final provider = Provider.of<MachineProvider>(context, listen: false);
+    final periods = ['7D', '14D', '30D', '90D'];
+    final labels = {'7D': '7 Jours', '14D': '14 Jours', '30D': '30 Jours', '90D': '3 Mois'};
 
     return SizedBox(
       height: 40,
@@ -245,7 +203,10 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
             label: Text(labels[p]!),
             selected: isSelected,
             onSelected: (bool selected) {
-              setState(() => _selectedPeriod = p);
+              if (selected) {
+                setState(() => _selectedPeriod = p);
+                provider.fetchAnalytics(city: _selectedCity, period: p);
+              }
             },
             selectedColor: Colors.green.withOpacity(0.2),
             checkmarkColor: Colors.green,
@@ -274,18 +235,21 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  Widget _buildKpiGrid(BuildContext context, SettingsProvider settings, int count, int full, double plastic, double aluminum) {
+  Widget _buildKpiGrid(BuildContext context, SettingsProvider settings, Map<String, dynamic> cards) {
     return LayoutBuilder(
       builder: (context, constraints) {
         double spacing = 20.0;
+        final plastic = cards['plastique'] ?? {};
+        final alu = cards['aluminium'] ?? {};
+        
         return Wrap(
           spacing: spacing,
           runSpacing: spacing,
           children: [
-            _buildStatCard(context, constraints.maxWidth, settings.translate('total_machines'), count.toString(), "Unités", Icons.sensors, const Color(0xFF3B82F6)),
-            _buildStatCard(context, constraints.maxWidth, "À Collecter", full.toString(), "Alerte", Icons.warning_rounded, const Color(0xFFEF4444)),
-            _buildStatCard(context, constraints.maxWidth, settings.translate('plastic'), "${plastic.toInt()}kg", "+8% croissance", Icons.eco, const Color(0xFF10B981)),
-            _buildStatCard(context, constraints.maxWidth, settings.translate('aluminum'), "${aluminum.toInt()}kg", "Stable", Icons.precision_manufacturing, const Color(0xFFF59E0B)),
+            _buildStatCard(context, constraints.maxWidth, settings.translate('total_machines'), (cards['total_machines'] ?? 0).toString(), "Unités", Icons.sensors, const Color(0xFF3B82F6)),
+            _buildStatCard(context, constraints.maxWidth, "À Collecter", (cards['a_collecter'] ?? 0).toString(), "Alerte", Icons.warning_rounded, const Color(0xFFEF4444)),
+            _buildStatCard(context, constraints.maxWidth, settings.translate('plastic'), "${plastic['weight'] ?? 0}kg", plastic['growth'] ?? "Stable", Icons.eco, const Color(0xFF10B981)),
+            _buildStatCard(context, constraints.maxWidth, settings.translate('aluminum'), "${alu['weight'] ?? 0}kg", alu['growth'] ?? "Stable", Icons.precision_manufacturing, const Color(0xFFF59E0B)),
           ],
         );
       }
@@ -374,7 +338,11 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  Widget _buildPieChart(SettingsProvider settings, double plastic, double aluminum) {
+  Widget _buildPieChart(SettingsProvider settings, Map<String, dynamic> distribution) {
+    final pet = (distribution['PET'] ?? 0).toDouble();
+    final alu = (distribution['ALU'] ?? 0).toDouble();
+    final total = pet + alu + 0.0001;
+
     return SizedBox(
       height: 200,
       child: PieChart(
@@ -383,16 +351,16 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           centerSpaceRadius: 50,
           sections: [
             PieChartSectionData(
-              value: plastic,
-              title: "${((plastic / (plastic + aluminum + 0.1)) * 100).toInt()}%",
+              value: pet,
+              title: "${((pet / total) * 100).toInt()}%",
               color: const Color(0xFF10B981),
               radius: 20,
               showTitle: true,
               titleStyle: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
             ),
             PieChartSectionData(
-              value: aluminum,
-              title: "${((aluminum / (plastic + aluminum + 0.1)) * 100).toInt()}%",
+              value: alu,
+              title: "${((alu / total) * 100).toInt()}%",
               color: const Color(0xFF3B82F6),
               radius: 20,
               showTitle: true,
@@ -404,25 +372,19 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  Widget _buildTrendChart(BuildContext context, List<Map<String, dynamic>> products) {
-    if (products.isEmpty) {
+  Widget _buildTrendChart(BuildContext context, List<dynamic> trends) {
+    if (trends.isEmpty) {
       return Container(
         height: 200,
         alignment: Alignment.center,
-        child: Text("Aucun historique pour le moment", style: TextStyle(color: Colors.grey[400])),
+        child: Text("Aucune tendance disponible", style: TextStyle(color: Colors.grey[400])),
       );
     }
 
-    // Extraction des points réels basés sur le poids des produits recyclés
     List<FlSpot> spots = [];
-    for (int i = 0; i < products.length; i++) {
-      double weight = (products[i]['weight_kg'] ?? 0).toDouble();
+    for (int i = 0; i < trends.length; i++) {
+      double weight = (trends[i]['weight'] ?? 0).toDouble();
       spots.add(FlSpot(i.toDouble(), weight));
-    }
-    
-    // Si un seul point, on en ajoute un à 0 pour faire une ligne
-    if (spots.length == 1) {
-      spots.insert(0, const FlSpot(0, 0));
     }
 
     return SizedBox(
@@ -451,7 +413,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  Widget _buildBarChart(BuildContext context, List<MachineData> machines) {
+  Widget _buildBarChart(BuildContext context, List<dynamic> volumes) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return SizedBox(
       height: 250,
@@ -466,24 +428,25 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               sideTitles: SideTitles(
                 showTitles: true,
                 getTitlesWidget: (value, meta) {
-                  if (value.toInt() >= machines.length) return const SizedBox();
-                  return Text(machines[value.toInt()].wilaya.substring(0, 3), 
+                  if (value.toInt() >= volumes.length) return const SizedBox();
+                  String vilaya = volumes[value.toInt()]['wilaya'] ?? "N/A";
+                  return Text(vilaya.length > 3 ? vilaya.substring(0, 3) : vilaya, 
                     style: GoogleFonts.readexPro(fontSize: 10, color: Colors.grey));
                 },
               ),
             ),
           ),
           barGroups: [
-            for (int i = 0; i < machines.length; i++)
+            for (int i = 0; i < volumes.length; i++)
               BarChartGroupData(x: i, barRods: [
                 BarChartRodData(
-                  toY: machines[i].plasticQty + machines[i].aluminumQty,
+                  toY: (volumes[i]['volume'] ?? 0).toDouble(),
                   color: const Color(0xFF10B981),
                   width: 18,
                   borderRadius: BorderRadius.circular(4),
                   backDrawRodData: BackgroundBarChartRodData(
                     show: true, 
-                    toY: 100, 
+                    toY: 50, // Max scale relative
                     color: isDark ? Colors.white10 : const Color(0xFFF1F5F9)
                   ),
                 )
@@ -494,10 +457,15 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  Widget _buildAlerts(BuildContext context, List<MachineData> machines) {
-    final alerts = machines.where((m) => m.fillLevel > 0.8).toList();
+  Widget _buildAlerts(BuildContext context, List<dynamic> alerts) {
+    if (alerts.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        child: Text("Aucune alerte critique", style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+      );
+    }
     return Column(
-      children: alerts.map((m) => Container(
+      children: alerts.map((a) => Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
@@ -513,12 +481,12 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Critique : ${m.id}", style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
-                  Text("Collecte urgente à ${m.wilaya}", style: GoogleFonts.readexPro(fontSize: 12, color: Colors.grey[600])),
+                  Text("Critique : ${a['machine_id']}", style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+                  Text(a['message'] ?? "Action requise", style: GoogleFonts.readexPro(fontSize: 12, color: Colors.grey[600])),
                 ],
               ),
             ),
-            Text("${(m.fillLevel * 100).toInt()}%", 
+            Text("${(a['fill_percentage'] ?? 0)}%", 
               style: GoogleFonts.outfit(color: const Color(0xFFEF4444), fontWeight: FontWeight.bold, fontSize: 16)),
           ],
         ),
@@ -526,36 +494,39 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  Widget _buildDetailedTable(BuildContext context, List<MachineData> machines) {
+  Widget _buildDetailedTable(BuildContext context, List<dynamic> inventaire) {
     return Column(
-      children: machines.map((m) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 60, 
-              child: Text(
-                m.id, 
-                style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Expanded(child: Text(m.wilaya, style: GoogleFonts.readexPro(color: Colors.grey[500]))),
-            SizedBox(
-              width: 120,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: LinearProgressIndicator(
-                  value: m.fillLevel,
-                  minHeight: 8,
-                  color: m.fillLevel > 0.8 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
-                  backgroundColor: Theme.of(context).dividerColor.withOpacity(0.1),
+      children: inventaire.map((m) {
+        double fill = (m['fill_percentage'] ?? 0).toDouble() / 100.0;
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Row(
+            children: [
+              SizedBox(
+                width: 60, 
+                child: Text(
+                  m['machine_id'] ?? "N/A", 
+                  style: GoogleFonts.outfit(fontWeight: FontWeight.w600),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ),
-          ],
-        ),
-      )).toList(),
+              Expanded(child: Text(m['city'] ?? "N/A", style: GoogleFonts.readexPro(color: Colors.grey[500]))),
+              SizedBox(
+                width: 120,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: LinearProgressIndicator(
+                    value: fill,
+                    minHeight: 8,
+                    color: fill > 0.8 ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                    backgroundColor: Theme.of(context).dividerColor.withOpacity(0.1),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }
