@@ -14,12 +14,16 @@ class AnalyticsPage extends StatefulWidget {
 }
 
 class _AnalyticsPageState extends State<AnalyticsPage> {
+  String _selectedPeriod = '7D'; // Options: '1D', '7D', '30D'
+  String _selectedCity = 'All';  // Options: 'All', 'Oran', 'Alger', etc.
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<MachineProvider>(context, listen: false).fetchMachines();
+      final p = Provider.of<MachineProvider>(context, listen: false);
+      p.fetchMachines();
+      p.fetchRecycledProducts();
     });
   }
 
@@ -71,10 +75,29 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
             );
           }
 
-          final List<MachineData> machines = _parseMachines(provider.machines);
+          final List<MachineData> machines = _parseMachines(provider.machines)
+              .where((m) => _selectedCity == 'All' || m.wilaya == _selectedCity)
+              .toList();
 
           if (machines.isEmpty) {
-            return const Center(child: Text("Aucune machine trouvée."));
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text("Aucune machine trouvée."),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      provider.fetchMachines();
+                      provider.fetchRecycledProducts();
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text("Réessayer"),
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                  ),
+                ],
+              ),
+            );
           }
 
           double totalPlastic = machines.fold(0, (sum, m) => sum + m.plasticQty);
@@ -83,7 +106,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 
           return CustomScrollView(
             slivers: [
-              _buildAppBar(context),
+              _buildAppBar(context, machines, provider.machines),
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
@@ -91,6 +114,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildHeaderSection(settings),
+                      const SizedBox(height: 24),
+                      _buildFilterBar(context, settings),
                       const SizedBox(height: 32),
                       
                       _buildKpiGrid(context, settings, machines.length, fullMachines, totalPlastic, totalAluminum),
@@ -99,8 +124,22 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       
                       _buildPremiumCard(
                         context,
-                        title: settings.translate('aluminum') + " & " + settings.translate('plastic'),
-                        child: _buildPieChart(settings, totalPlastic, totalAluminum),
+                        title: "Tendance de Recyclage (7 derniers jours)",
+                        child: _buildTrendChart(context, provider.recycledProducts),
+                      ),
+                      
+                      const SizedBox(height: 32),
+                      
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _buildPremiumCard(
+                              context,
+                              title: settings.translate('recyc_distribution'),
+                              child: _buildPieChart(settings, totalPlastic, totalAluminum),
+                            ),
+                          ),
+                        ],
                       ),
                       
                       const SizedBox(height: 32),
@@ -132,7 +171,21 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  Widget _buildAppBar(BuildContext context) {
+  Widget _buildAppBar(BuildContext context, List<MachineData> machines, List<Map<String, dynamic>> rawMachines) {
+    // Liste exhaustive des Wilayas d'Algérie
+    final allWilayas = [
+      'All', 'Adrar', 'Chlef', 'Laghouat', 'Oum El Bouaghi', 'Batna', 'Béjaïa', 'Biskra', 
+      'Béchar', 'Blida', 'Bouira', 'Tamanrasset', 'Tébessa', 'Tlemcen', 'Tiaret', 'Tizi Ouzou', 
+      'Alger', 'Djelfa', 'Jijel', 'Sétif', 'Saïda', 'Skikda', 'Sidi Bel Abbès', 'Annaba', 
+      'Guelma', 'Constantine', 'Médéa', 'Mostaganem', 'M\'Sila', 'Mascara', 'Ouargla', 'Oran', 
+      'El Bayadh', 'Illizi', 'Bordj Bou Arreridj', 'Boumerdès', 'El Tarf', 'Tindouf', 
+      'Tissemsilt', 'El Oued', 'Khenchela', 'Souk Ahras', 'Tipaza', 'Mila', 'Aïn Defla', 
+      'Naâma', 'Aïn Témouchent', 'Ghardaïa', 'Relizane', 'Timimoun', 'Bordj Badji Mokhtar', 
+      'Ouled Djellal', 'Béni Abbès', 'In Salah', 'In Guezzam', 'Touggourt', 'Djanet', 
+      'El M\'Ghair', 'El Meniaâ', 'Aflou', 'El Abiodh Sidi Cheikh', 'El Aricha', 'El Kantara', 
+      'Barika', 'Bou Saâda', 'Bir El Ater', 'Ksar El Boukhari', 'Ksar Chellala', 'Aïn Oussera', 'Messaad'
+    ];
+    
     return SliverAppBar(
       expandedHeight: 80.0,
       floating: false,
@@ -141,7 +194,70 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       flexibleSpace: FlexibleSpaceBar(
         title: Text("EcoVision Analytics", 
-          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18)),
+          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: Theme.of(context).textTheme.bodyLarge?.color)),
+      ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.refresh, color: Colors.green),
+          onPressed: () {
+            final p = context.read<MachineProvider>();
+            p.fetchMachines();
+            p.fetchRecycledProducts();
+          },
+        ),
+        Padding(
+          padding: const EdgeInsets.only(right: 16),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedCity,
+              icon: const Icon(Icons.location_on, size: 18, color: Colors.green),
+              style: GoogleFonts.outfit(color: Colors.green, fontWeight: FontWeight.bold),
+              onChanged: (String? newValue) {
+                if (newValue != null) setState(() => _selectedCity = newValue);
+              },
+              items: allWilayas.map<DropdownMenuItem<String>>((String value) {
+                return DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(value),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterBar(BuildContext context, SettingsProvider settings) {
+    final periods = ['1D', '7D', '30D'];
+    final labels = {'1D': 'Aujourd\'hui', '7D': '7 Jours', '30D': '30 Jours'};
+
+    return SizedBox(
+      height: 40,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: periods.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, index) {
+          final p = periods[index];
+          final isSelected = _selectedPeriod == p;
+          return FilterChip(
+            label: Text(labels[p]!),
+            selected: isSelected,
+            onSelected: (bool selected) {
+              setState(() => _selectedPeriod = p);
+            },
+            selectedColor: Colors.green.withOpacity(0.2),
+            checkmarkColor: Colors.green,
+            labelStyle: GoogleFonts.readexPro(
+              fontSize: 12, 
+              color: isSelected ? Colors.green : Colors.grey,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            ),
+            backgroundColor: Theme.of(context).cardColor,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: isSelected ? Colors.green : Colors.transparent)),
+          );
+        },
       ),
     );
   }
@@ -177,22 +293,56 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   }
 
   Widget _buildStatCard(BuildContext context, double maxWidth, String title, String value, String subtitle, IconData icon, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
     return Container(
       width: (maxWidth - 20) / 2,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [BoxShadow(blurRadius: 12, color: Colors.black.withOpacity(0.05), offset: const Offset(0, 4))],
+        gradient: LinearGradient(
+          colors: isDark 
+            ? [color.withOpacity(0.15), color.withOpacity(0.05)]
+            : [color.withOpacity(0.1), Colors.white],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: color.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            blurRadius: 15, 
+            color: color.withOpacity(0.05), 
+            offset: const Offset(0, 8)
+          )
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 28),
-          const SizedBox(height: 12),
-          Text(value, style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold)),
-          Text(title, style: GoogleFonts.readexPro(fontSize: 12, color: Colors.grey[500])),
-          Text(subtitle, style: GoogleFonts.readexPro(fontSize: 10, fontWeight: FontWeight.w600, color: color)),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 24),
+          ),
+          const SizedBox(height: 16),
+          Text(value, 
+            style: GoogleFonts.outfit(fontSize: 24, fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black87)),
+          const SizedBox(height: 4),
+          Text(title, 
+            style: GoogleFonts.readexPro(fontSize: 12, color: Colors.grey[500], fontWeight: FontWeight.w500)),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text(subtitle, 
+              style: GoogleFonts.readexPro(fontSize: 10, fontWeight: FontWeight.bold, color: color)),
+          ),
         ],
       ),
     );
@@ -226,25 +376,74 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 
   Widget _buildPieChart(SettingsProvider settings, double plastic, double aluminum) {
     return SizedBox(
-      height: 220,
+      height: 200,
       child: PieChart(
         PieChartData(
-          sectionsSpace: 0,
-          centerSpaceRadius: 40,
+          sectionsSpace: 4,
+          centerSpaceRadius: 50,
           sections: [
             PieChartSectionData(
               value: plastic,
-              title: settings.translate('plastic'),
+              title: "${((plastic / (plastic + aluminum + 0.1)) * 100).toInt()}%",
               color: const Color(0xFF10B981),
-              radius: 50,
-              titleStyle: GoogleFonts.readexPro(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+              radius: 20,
+              showTitle: true,
+              titleStyle: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
             ),
             PieChartSectionData(
               value: aluminum,
-              title: settings.translate('aluminum'),
+              title: "${((aluminum / (plastic + aluminum + 0.1)) * 100).toInt()}%",
               color: const Color(0xFF3B82F6),
-              radius: 45,
-              titleStyle: GoogleFonts.readexPro(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+              radius: 20,
+              showTitle: true,
+              titleStyle: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTrendChart(BuildContext context, List<Map<String, dynamic>> products) {
+    if (products.isEmpty) {
+      return Container(
+        height: 200,
+        alignment: Alignment.center,
+        child: Text("Aucun historique pour le moment", style: TextStyle(color: Colors.grey[400])),
+      );
+    }
+
+    // Extraction des points réels basés sur le poids des produits recyclés
+    List<FlSpot> spots = [];
+    for (int i = 0; i < products.length; i++) {
+      double weight = (products[i]['weight_kg'] ?? 0).toDouble();
+      spots.add(FlSpot(i.toDouble(), weight));
+    }
+    
+    // Si un seul point, on en ajoute un à 0 pour faire une ligne
+    if (spots.length == 1) {
+      spots.insert(0, const FlSpot(0, 0));
+    }
+
+    return SizedBox(
+      height: 200,
+      child: LineChart(
+        LineChartData(
+          gridData: FlGridData(show: true, drawVerticalLine: false, getDrawingHorizontalLine: (value) => FlLine(color: Colors.grey.withOpacity(0.1), strokeWidth: 1)),
+          titlesData: const FlTitlesData(show: false),
+          borderData: FlBorderData(show: false),
+          lineBarsData: [
+            LineChartBarData(
+              spots: spots,
+              isCurved: true,
+              color: const Color(0xFF10B981),
+              barWidth: 4,
+              isStrokeCapRound: true,
+              dotData: const FlDotData(show: true),
+              belowBarData: BarAreaData(
+                show: true,
+                color: const Color(0xFF10B981).withOpacity(0.1),
+              ),
             ),
           ],
         ),

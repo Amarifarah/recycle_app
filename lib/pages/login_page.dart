@@ -271,7 +271,7 @@ class _LoginPageState extends State<LoginPage> {
                               const SizedBox(height: 16),
 
                               TextButton(
-                                onPressed: () {},
+                                onPressed: () => _showForgotPasswordDialog(context),
                                 child: Text(
                                   settings.translate('forgot_password'),
                                   style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w600),
@@ -312,6 +312,71 @@ class _LoginPageState extends State<LoginPage> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  void _showForgotPasswordDialog(BuildContext context) {
+    final emailCtrl = TextEditingController();
+    final settings = context.read<SettingsProvider>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(settings.translate('forgot_password'),
+            style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              "Entrez votre adresse email pour recevoir un lien de réinitialisation.",
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+            const SizedBox(height: 20),
+            _buildTextField(
+              context,
+              controller: emailCtrl,
+              label: settings.translate('email_address'),
+              icon: Icons.email_outlined,
+              isDark: settings.isDarkMode,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(settings.translate('cancel'),
+                style: TextStyle(color: Colors.grey[600])),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final email = emailCtrl.text.trim();
+              if (email.isEmpty) return;
+
+              final success = await context.read<LoginModel>().forgotPassword(email);
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(success
+                        ? "Email de réinitialisation envoyé !"
+                        : "Erreur : ${context.read<LoginModel>().errorMessage}"),
+                    backgroundColor: success ? Colors.green : Colors.red,
+                  ),
+                );
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text("Envoyer"),
+          ),
+        ],
       ),
     );
   }

@@ -4,15 +4,18 @@ import 'dart:convert';
 
 class MachineProvider with ChangeNotifier {
   List<Map<String, dynamic>> _machines = [];
+  List<Map<String, dynamic>> _recycledProducts = [];
   bool _isLoading = false;
   String? _error;
 
   List<Map<String, dynamic>> get machines => _machines;
+  List<Map<String, dynamic>> get recycledProducts => _recycledProducts;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
   // URL réelle du backend Render
   final String baseUrl = "https://rvm-backend-oaot.onrender.com";
+  // final String baseUrl = "http://localhost:5000"; // Test local Windows Desktop
 
   // Initialisation à vide (les données viendront de l'API)
   void setInitialMachines(List<Map<String, dynamic>> initialMachines) {
@@ -32,7 +35,8 @@ class MachineProvider with ChangeNotifier {
     // notifyListeners();
 
     try {
-      final response = await http.get(Uri.parse('$baseUrl/machine'));
+      final response = await http.get(Uri.parse('$baseUrl/machine/'));
+      print("📡 DEBUG FETCH MACHINES: Code ${response.statusCode}, Body: ${response.body}");
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
         _machines = data.map((json) => json as Map<String, dynamic>).toList();
@@ -41,6 +45,25 @@ class MachineProvider with ChangeNotifier {
       }
     } catch (e) {
       _error = "Erreur réseau: $e";
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // 1b. Récupérer l'historique des produits recyclés (pour Analytics)
+  Future<void> fetchRecycledProducts() async {
+    _isLoading = true;
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/product/'));
+      print("📡 DEBUG FETCH PRODUCTS: Code ${response.statusCode}, Body: ${response.body}");
+      
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        _recycledProducts = data.map((json) => json as Map<String, dynamic>).toList();
+      }
+    } catch (e) {
+      print("Erreur fetch products: $e");
     } finally {
       _isLoading = false;
       notifyListeners();

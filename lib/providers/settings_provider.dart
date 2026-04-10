@@ -82,7 +82,7 @@ class SettingsProvider with ChangeNotifier {
         // Dashboard
         'dashboard': 'Tableau de Bord',
         'machines': 'Machines',
-        'clients': 'Clients',
+        'clients': 'Travailleurs',
         'analytics': 'Analyses',
         'logout': 'Déconnexion',
         'total_machines': 'Total Machines',
@@ -123,7 +123,7 @@ class SettingsProvider with ChangeNotifier {
         // Dashboard
         'dashboard': 'Dashboard',
         'machines': 'Machines',
-        'clients': 'Clients',
+        'clients': 'Workers',
         'analytics': 'Analytics',
         'logout': 'Logout',
         'total_machines': 'Total Machines',
@@ -164,7 +164,7 @@ class SettingsProvider with ChangeNotifier {
         // Dashboard
         'dashboard': 'لوحة التحكم',
         'machines': 'الآلات',
-        'clients': 'العملاء',
+        'clients': 'العمال',
         'analytics': 'تحليلات',
         'logout': 'تسجيل الخروج',
         'total_machines': 'إجمالي الآلات',

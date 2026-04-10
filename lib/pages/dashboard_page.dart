@@ -3,7 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:recycle_app/pages/machines_page.dart';
 import '../models/dashboard_model.dart';
 import '../widgets/sidebar.dart';
-import '../pages/clients_page.dart';
+import 'worker_page.dart';
 import 'settings_page.dart';
 import 'analytics_page.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -61,7 +61,7 @@ class _DashboardPageState extends State<DashboardPage> {
         return DashboardHome(key: UniqueKey()); // Force refresh when switching tabs
 
       case "clients":
-        return ClientsPage();
+        return const WorkerPage();
 
       case "machines":
         return const MachinesPage();

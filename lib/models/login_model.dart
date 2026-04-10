@@ -14,6 +14,7 @@ class LoginModel extends ChangeNotifier {
 
   // Lien de production Render pour la connexion
   final String apiUrl = "https://rvm-backend-oaot.onrender.com/user/login";
+  // final String apiUrl = "http://localhost:5000/user/login";
 
   void togglePassword() {
     showPassword = !showPassword;
@@ -89,6 +90,37 @@ class LoginModel extends ChangeNotifier {
     } catch (e) {
       isLoading = false;
       errorMessage = "Erreur de connexion : $e";
+      notifyListeners();
+      return false;
+    }
+  }
+
+  // --- NOUVEAU : MOT DE PASSE OUBLIÉ ---
+  Future<bool> forgotPassword(String email) async {
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await http.post(
+        Uri.parse(apiUrl.replaceAll("/login", "/forgot-password")),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({"email": email}),
+      );
+
+      isLoading = false;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        notifyListeners();
+        return true;
+      } else {
+        final data = jsonDecode(response.body);
+        errorMessage = data['message'] ?? "Erreur lors de la demande.";
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      isLoading = false;
+      errorMessage = "Erreur réseau : $e";
       notifyListeners();
       return false;
     }
