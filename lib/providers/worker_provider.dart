@@ -5,61 +5,44 @@ import '../models/worker_model.dart';
 
 class WorkerProvider with ChangeNotifier {
   List<Worker> _workers = [];
+  Map<String, dynamic>? _dashboardStats;
   bool _isLoading = false;
   String? _error;
 
   List<Worker> get workers => _workers;
+  Map<String, dynamic>? get dashboardStats => _dashboardStats;
   bool get isLoading => _isLoading;
   String? get error => _error;
 
   final String baseUrl = "https://rvm-backend-oaot.onrender.com";
   // final String baseUrl = "http://localhost:5000"; // Test local
 
-  // 1. Récupérer tous les travailleurs (Techniciens et Videurs)
+  // 1. Récupérer tous les travailleurs
   Future<void> fetchWorkers() async {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
+    await fetchDashboardStats(); // Charger les stats en même temps
+
     try {
-      // On récupère les deux types de travailleurs
-      final techResp = await http.get(Uri.parse('$baseUrl/user/role/technicien'));
-      final videurResp = await http.get(Uri.parse('$baseUrl/user/role/videur'));
+      final response = await http.get(Uri.parse('$baseUrl/worker/all'));
+      print("📡 DEBUG FETCH ALL WORKERS: Code ${response.statusCode}, Body: ${response.body}");
 
-      print("📡 DEBUG FETCH TECH: Code ${techResp.statusCode}, Body: ${techResp.body}");
-      print("📡 DEBUG FETCH VIDEUR: Code ${videurResp.statusCode}, Body: ${videurResp.body}");
-
-      List<Worker> combined = [];
-
-      if (techResp.statusCode == 200) {
-        final List<dynamic> data = json.decode(techResp.body);
-        for (var item in data) {
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        _workers = data.map((item) {
           try {
-            combined.add(Worker.fromJson(item));
+            return Worker.fromJson(item);
           } catch (e) {
             print("❌ Erreur parsing worker: $e");
+            return null;
           }
-        }
-      }
-
-      if (videurResp.statusCode == 200) {
-        final List<dynamic> data = json.decode(videurResp.body);
-        for (var item in data) {
-          try {
-            combined.add(Worker.fromJson(item));
-          } catch (e) {
-            print("❌ Erreur parsing videur: $e");
-          }
-        }
-      }
-
-      _workers = combined;
-      print("✅ TOTAL WORKERS CHARGÉS: ${_workers.length}");
-      
-      if (techResp.statusCode == 404 || videurResp.statusCode == 404) {
-        _error = "Les routes '/user/role/...' n'existent pas sur le serveur Render. Le backend doit être mis à jour.";
-      } else if (techResp.statusCode != 200 && videurResp.statusCode != 200) {
-        _error = "Erreur de chargement des données (Code: ${techResp.statusCode})";
+        }).whereType<Worker>().toList();
+        
+        print("✅ TOTAL WORKERS CHARGÉS: ${_workers.length}");
+      } else {
+        _error = "Erreur server: ${response.statusCode}";
       }
     } catch (e) {
       _error = "Erreur réseau: $e";
@@ -76,7 +59,7 @@ class WorkerProvider with ChangeNotifier {
 
     try {
       final response = await http.post(
-        Uri.parse('$baseUrl/user/'), // Route racine pour createUser
+        Uri.parse('$baseUrl/worker/add'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode(userData),
       );
@@ -105,7 +88,7 @@ class WorkerProvider with ChangeNotifier {
 
     try {
       final response = await http.delete(
-        Uri.parse('$baseUrl/user/$id'),
+        Uri.parse('$baseUrl/worker/delete/$id'),
       );
 
       if (response.statusCode == 200) {
@@ -121,6 +104,36 @@ class WorkerProvider with ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+  // 4. Mettre à jour le statut
+  Future<bool> updateStatus(String id, String status) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/worker/update-status/$id'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({"status": status}),
+      );
+      return response.statusCode == 200;
+    } catch (e) {
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // 5. Récupérer les statistiques du Dashboard
+  Future<void> fetchDashboardStats() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/worker/stats/dashboard'));
+      if (response.statusCode == 200) {
+        _dashboardStats = json.decode(response.body);
+      }
+    } catch (e) {
+      print("Erreur fetch dashboard stats: $e");
     }
   }
 }

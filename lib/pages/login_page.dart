@@ -15,6 +15,8 @@ class _LoginPageState extends State<LoginPage> {
   final _formKey = GlobalKey<FormState>();
 
   void _login() async {
+    if (!_formKey.currentState!.validate()) return;
+    
     final loginModel = context.read<LoginModel>();
     final success = await loginModel.login();
     if (success) {
@@ -222,6 +224,11 @@ class _LoginPageState extends State<LoginPage> {
                                 label: settings.translate('email_address'),
                                 icon: Icons.email_outlined,
                                 isDark: isDark,
+                                validator: (v) {
+                                  if (v == null || v.isEmpty) return 'L\'email est requis';
+                                  if (!v.contains('@')) return 'Format d\'email invalide';
+                                  return null;
+                                },
                               ),
                               const SizedBox(height: 16),
 
@@ -233,6 +240,10 @@ class _LoginPageState extends State<LoginPage> {
                                 icon: Icons.lock_outlined,
                                 obscure: !loginModel.showPassword,
                                 isDark: isDark,
+                                validator: (v) {
+                                  if (v == null || v.isEmpty) return 'Le mot de passe est requis';
+                                  return null;
+                                },
                                 suffix: IconButton(
                                   icon: Icon(
                                     loginModel.showPassword
@@ -388,10 +399,12 @@ class _LoginPageState extends State<LoginPage> {
     required bool isDark,
     bool obscure = false,
     Widget? suffix,
+    String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       obscureText: obscure,
+      validator: validator,
       style: TextStyle(color: isDark ? Colors.white : Colors.black87),
       decoration: InputDecoration(
         labelText: label,

@@ -145,38 +145,50 @@ class _WorkerPageState extends State<WorkerPage> {
 
   Widget _buildStatsRow(BuildContext context) {
     final provider = context.watch<WorkerProvider>();
+    final stats = provider.dashboardStats;
+
+    // Valeurs par défaut si les données ne sont pas encore chargées
+    final totalWorkers = stats?['travailleurs']?['total'] ?? 0;
+    final activeWorkers = stats?['travailleurs']?['actifs'] ?? 0;
+    final totalTechs = stats?['techniciens']?['total'] ?? 0;
+    final inIntervention = stats?['techniciens']?['en_intervention'] ?? 0;
+    final totalVideurs = stats?['videurs']?['total'] ?? 0;
+    final availableVideurs = stats?['videurs']?['disponibles'] ?? 0;
+    final totalTasks = stats?['taches']?['total'] ?? 0;
+    final urgentTasks = stats?['taches']?['urgentes'] ?? 0;
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
       child: Row(
         children: [
           _StatCard(
             label: 'Total travailleurs',
-            value: '${provider.workers.length}',
-            badge: '6 actifs aujourd\'hui',
+            value: '$totalWorkers',
+            badge: '$activeWorkers actif(s) aujourd\'hui',
             badgeColor: const Color(0xFF0C447C),
             badgeBg: const Color(0xFFE6F1FB),
           ),
           const SizedBox(width: 12),
           _StatCard(
             label: 'Techniciens',
-            value: '$_techCount',
-            badge: '3 en intervention',
+            value: '$totalTechs',
+            badge: '$inIntervention en intervention',
             badgeColor: const Color(0xFF3C3489),
             badgeBg: const Color(0xFFEEEDFE),
           ),
           const SizedBox(width: 12),
           _StatCard(
             label: 'Videurs',
-            value: '$_videurCount',
-            badge: '4 disponibles',
+            value: '$totalVideurs',
+            badge: '$availableVideurs disponible(s)',
             badgeColor: const Color(0xFF27500A),
             badgeBg: const Color(0xFFEAF3DE),
           ),
           const SizedBox(width: 12),
           _StatCard(
             label: 'Tâches en attente',
-            value: '$_pendingTasks',
-            badge: '2 urgentes',
+            value: '$totalTasks',
+            badge: '$urgentTasks urgente(s)',
             badgeColor: const Color(0xFF633806),
             badgeBg: const Color(0xFFFAEEDA),
           ),
@@ -302,6 +314,22 @@ class _WorkerPageState extends State<WorkerPage> {
 
   void _showAssignDialog(BuildContext context, Worker w) {
     showDialog(context: context, builder: (_) => _AssignTaskDialog(worker: w));
+  }
+
+  void _showWorkerProfile(BuildContext context, Worker w) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _WorkerProfileSheet(worker: w),
+    );
+  }
+
+  void _showWorkerHistory(BuildContext context, Worker w) {
+    showDialog(
+      context: context,
+      builder: (_) => _WorkerHistoryDialog(worker: w),
+    );
   }
 }
 
@@ -466,7 +494,7 @@ class _WorkerCard extends StatelessWidget {
           _buildCardHeader(context),
           Divider(height: 24, thickness: 0.5, color: Theme.of(context).dividerColor),
           _buildInfoRow(context, 'Téléphone', worker.phone ?? 'N/A'),
-          _buildInfoRow(context, 'Zone', worker.city),
+          _buildInfoRow(context, 'Ville', worker.city),
           _buildInfoRow(context, 'Machines', '${worker.assignedMachines}'),
           _buildInfoRow(context, 'Tâches complétées', '${worker.tasksCompleted}'),
           if (worker.role == WorkerRole.videur && worker.fillRate != null) ...[
@@ -613,11 +641,14 @@ class _WorkerCard extends StatelessWidget {
   }
 
   Widget _buildFooterButtons(BuildContext context) {
+    // On récupère les méthodes du State original
+    final state = context.findAncestorStateOfType<_WorkerPageState>();
+    
     return Row(
       children: [
         Expanded(
           child: OutlinedButton(
-            onPressed: () {},
+            onPressed: () => state?._showWorkerProfile(context, worker),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 8),
               side: BorderSide(color: Theme.of(context).dividerColor),
@@ -631,7 +662,7 @@ class _WorkerCard extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: OutlinedButton(
-            onPressed: () {},
+            onPressed: () => state?._showWorkerHistory(context, worker),
             style: OutlinedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 8),
               side: BorderSide(color: Theme.of(context).dividerColor),
@@ -752,49 +783,76 @@ class _AddWorkerDialog extends StatefulWidget {
 }
 
 class _AddWorkerDialogState extends State<_AddWorkerDialog> {
+  final _formKey = GlobalKey<FormState>();
   WorkerRole _selectedRole = WorkerRole.technicien;
   final _nameCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  final _zoneCtrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _phoneCtrl.dispose();
-    _zoneCtrl.dispose();
+    _cityCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<WorkerProvider>();
+
     return AlertDialog(
       backgroundColor: Theme.of(context).cardColor,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       title: Text('Nouveau travailleur',
           style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w600)),
-      content: SizedBox(
-        width: 380,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _DialogField(label: 'Nom complet', controller: _nameCtrl),
-            const SizedBox(height: 12),
-            _DialogField(label: 'Téléphone', controller: _phoneCtrl),
-            const SizedBox(height: 12),
-            _DialogField(label: 'Zone', controller: _zoneCtrl),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Text('Rôle',
-                    style: TextStyle(fontSize: 13, color: Colors.grey[500])),
-                const Spacer(),
-                _RoleToggle(
-                  selected: _selectedRole,
-                  onChanged: (r) => setState(() => _selectedRole = r),
-                ),
-              ],
-            ),
-          ],
+      content: Form(
+        key: _formKey,
+        child: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _DialogField(
+                label: 'Nom complet', 
+                controller: _nameCtrl,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Le nom est requis';
+                  if (RegExp(r'[0-9]').hasMatch(v)) return 'Le nom ne peut pas contenir de chiffres';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              _DialogField(
+                label: 'Téléphone', 
+                controller: _phoneCtrl,
+                keyboardType: TextInputType.phone,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'Le téléphone est requis';
+                  if (!RegExp(r'^[0-9+ ]+$').hasMatch(v)) return 'Format invalide (chiffres uniquement)';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              _DialogField(
+                label: 'Ville', 
+                controller: _cityCtrl,
+                validator: (v) => v == null || v.isEmpty ? 'La ville est requise' : null,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Text('Rôle',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[500])),
+                  const Spacer(),
+                  _RoleToggle(
+                    selected: _selectedRole,
+                    onChanged: (r) => setState(() => _selectedRole = r),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -805,14 +863,15 @@ class _AddWorkerDialogState extends State<_AddWorkerDialog> {
         ),
         ElevatedButton(
           onPressed: () async {
-            final provider = context.read<WorkerProvider>();
+            if (!_formKey.currentState!.validate()) return;
+            
             final success = await provider.addWorker({
               "username": _nameCtrl.text.toLowerCase().replaceAll(' ', '.'),
               "nomcomplet": _nameCtrl.text,
               "email": "${_nameCtrl.text.toLowerCase().replaceAll(' ', '.')}@recycle.dz", // Dummy email
               "password": "Password123", // Default password
               "phone": _phoneCtrl.text,
-              "city": _zoneCtrl.text,
+              "city": _cityCtrl.text,
               "role": _selectedRole.name,
               "adress": "Non renseigné",
             });
@@ -837,7 +896,7 @@ class _AddWorkerDialogState extends State<_AddWorkerDialog> {
             shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8)),
           ),
-          child: context.watch<WorkerProvider>().isLoading
+          child: provider.isLoading
               ? const SizedBox(
                   width: 16,
                   height: 16,
@@ -857,13 +916,22 @@ class _AddWorkerDialogState extends State<_AddWorkerDialog> {
 class _DialogField extends StatelessWidget {
   final String label;
   final TextEditingController controller;
+  final String? Function(String?)? validator;
+  final TextInputType keyboardType;
 
-  const _DialogField({required this.label, required this.controller});
+  const _DialogField({
+    required this.label, 
+    required this.controller,
+    this.validator,
+    this.keyboardType = TextInputType.text,
+  });
 
   @override
   Widget build(BuildContext context) {
     return TextFormField(
       controller: controller,
+      validator: validator,
+      keyboardType: keyboardType,
       style: const TextStyle(fontSize: 13),
       decoration: InputDecoration(
         labelText: label,
@@ -1006,7 +1074,15 @@ class _AssignTaskDialogState extends State<_AssignTaskDialog> {
               style: TextStyle(color: Colors.grey[600])),
         ),
         ElevatedButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${_selected.length} machine(s) assignée(s) à ${widget.worker.nomcomplet}'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          },
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF1A1A18),
             foregroundColor: Colors.white,
@@ -1016,6 +1092,124 @@ class _AssignTaskDialogState extends State<_AssignTaskDialog> {
           ),
           child: const Text('Confirmer', style: TextStyle(fontSize: 13)),
         ),
+      ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+//  NEW WIDGET : WORKER PROFILE SHEET
+// ─────────────────────────────────────────
+
+class _WorkerProfileSheet extends StatelessWidget {
+  final Worker worker;
+  const _WorkerProfileSheet({required this.worker});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 30,
+                backgroundColor: Colors.green.withOpacity(0.1),
+                child: Text(worker.initials, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.green)),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(worker.nomcomplet, style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold)),
+                    Text(worker.role.name.toUpperCase(), style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                  ],
+                ),
+              ),
+              IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+            ],
+          ),
+          const SizedBox(height: 24),
+          _ProfileInfoItem(icon: Icons.email_outlined, label: 'Email', value: worker.email),
+          _ProfileInfoItem(icon: Icons.phone_outlined, label: 'Téléphone', value: worker.phone ?? 'N/A'),
+          _ProfileInfoItem(icon: Icons.location_city_outlined, label: 'Ville', value: worker.city),
+          _ProfileInfoItem(icon: Icons.location_on_outlined, label: 'Adresse', value: worker.adress),
+          _ProfileInfoItem(icon: Icons.calendar_today_outlined, label: 'Membre depuis', value: '${worker.createdAt.day}/${worker.createdAt.month}/${worker.createdAt.year}'),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProfileInfoItem extends StatelessWidget {
+  final IconData icon;
+  final String label, value;
+  const _ProfileInfoItem({required this.icon, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.green),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+//  NEW WIDGET : WORKER HISTORY DIALOG
+// ─────────────────────────────────────────
+
+class _WorkerHistoryDialog extends StatelessWidget {
+  final Worker worker;
+  const _WorkerHistoryDialog({required this.worker});
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      backgroundColor: Theme.of(context).cardColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text('Historique — ${worker.nomcomplet}', style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.bold)),
+      content: SizedBox(
+        width: 400,
+        height: 300,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.history_rounded, size: 60, color: Colors.grey[300]),
+            const SizedBox(height: 16),
+            const Text('Aucune activité récente', style: TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 8),
+            Text(
+              'Les tâches terminées et les interventions passées apparaîtront ici.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fermer')),
       ],
     );
   }
