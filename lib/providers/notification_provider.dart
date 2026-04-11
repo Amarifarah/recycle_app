@@ -60,14 +60,15 @@ class NotificationProvider with ChangeNotifier {
   }
 
   // 3. Assigner un travailleur à une notification
-  Future<bool> assignWorker(String id, String workerName) async {
+  Future<bool> assignWorker(String id, String workerName, String workerEmail) async {
     try {
       final response = await http.put(
         Uri.parse('$baseUrl/notif/status/$id'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           "status": "assignée",
-          "worker_name": workerName
+          "worker_name": workerName,
+          "worker_email": workerEmail
         }),
       );
       if (response.statusCode == 200) {
@@ -76,6 +77,7 @@ class NotificationProvider with ChangeNotifier {
         if (index != -1) {
           _pendingNotifications[index]['status'] = 'assignée';
           _pendingNotifications[index]['worker_name'] = workerName;
+          _pendingNotifications[index]['worker_email'] = workerEmail;
         }
         notifyListeners();
         return true;
