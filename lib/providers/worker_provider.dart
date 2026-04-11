@@ -184,4 +184,41 @@ class WorkerProvider with ChangeNotifier {
       return null;
     }
   }
+
+  // 8. Récupérer le profil complet d'un travailleur (Réel)
+  Future<Map<String, dynamic>?> fetchWorkerProfile(String workerId) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/worker/profile/$workerId'));
+      print("📡 DEBUG FETCH WORKER PROFILE: Code ${response.statusCode}, Body: ${response.body}");
+      
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      }
+      return null;
+    } catch (e) {
+      print("Erreur fetch worker profile: $e");
+      return null;
+    }
+  }
+
+  // 9. Mettre à jour le profil d'un travailleur
+  Future<bool> updateWorkerProfile(String workerId, Map<String, dynamic> data) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/worker/update/$workerId'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(data),
+      );
+      print("📡 DEBUG UPDATE WORKER PROFILE: Code ${response.statusCode}, Body: ${response.body}");
+      return response.statusCode == 200;
+    } catch (e) {
+      print("Erreur update worker profile: $e");
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
 }

@@ -73,10 +73,10 @@ class _WorkerPageState extends State<WorkerPage> {
                               ? _buildEmptyState()
                               : GridView.builder(
                         gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                          maxCrossAxisExtent: 360,
-                          crossAxisSpacing: 14,
-                          mainAxisSpacing: 14,
-                          childAspectRatio: 0.60,
+                          maxCrossAxisExtent: 400,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 1.8,
                         ),
                         itemCount: _filtered.length,
                         itemBuilder: (_, i) => _WorkerCard(
@@ -518,17 +518,6 @@ class _WorkerCardState extends State<_WorkerCard> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildCardHeader(context),
-          Divider(height: 24, thickness: 0.5, color: Theme.of(context).dividerColor),
-          _buildInfoRow(context, 'Téléphone', widget.worker.phone ?? 'N/A'),
-          _buildInfoRow(context, 'Ville', widget.worker.city),
-          _buildInfoRow(context, 'Machines', '${widget.worker.assignedMachines}'),
-          _buildInfoRow(context, 'Tâches complétées', '${widget.worker.tasksCompleted}'),
-          if (widget.worker.role == WorkerRole.videur && widget.worker.fillRate != null) ...[
-            const SizedBox(height: 4),
-            _buildFillRate(context, widget.worker.fillRate!),
-          ],
-          Divider(height: 20, thickness: 0.5, color: Theme.of(context).dividerColor),
-          _buildTasksSection(context),
           const SizedBox(height: 14),
           _buildFooterButtons(context),
         ],
@@ -571,14 +560,13 @@ class _WorkerCardState extends State<_WorkerCard> {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             _isUpdating 
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.green))
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.green))
               : PopupMenuButton<String>(
-                  tooltip: 'Changer le statut',
+                  tooltip: 'Gérer manuellement le statut',
                   onSelected: (val) => _updateStatus(context, val),
                   itemBuilder: (context) => [
                     _buildStatusMenuItem('actif', 'Disponible', const Color(0xFF639922)),
-                    _buildStatusMenuItem('en intervention', 'Occupé', const Color(0xFFBA7517)),
-                    _buildStatusMenuItem('inactif', 'Hors ligne', const Color(0xFFE24B4A)),
+                    _buildStatusMenuItem('inactif', 'Mettre hors ligne', const Color(0xFFE24B4A)),
                   ],
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -595,7 +583,7 @@ class _WorkerCardState extends State<_WorkerCard> {
                       Icon(Icons.arrow_drop_down, size: 14, color: Colors.grey[400]),
                     ],
                   ),
-            ),
+                ),
             const SizedBox(height: 4),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -614,69 +602,20 @@ class _WorkerCardState extends State<_WorkerCard> {
     );
   }
 
-  Widget _buildInfoRow(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 7),
+  PopupMenuItem<String> _buildStatusMenuItem(String value, String label, Color color) {
+    return PopupMenuItem<String>(
+      value: value,
       child: Row(
         children: [
-          Text(label,
-              style: TextStyle(fontSize: 13, color: Colors.grey[500])),
-          const Spacer(),
-          Text(value,
-              style: const TextStyle(
-                  fontSize: 13, fontWeight: FontWeight.w500)),
+          Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          const SizedBox(width: 10),
+          Text(label, style: const TextStyle(fontSize: 13)),
         ],
       ),
     );
   }
 
-  Widget _buildFillRate(BuildContext context, int rate) {
-    final color = rate > 80
-        ? const Color(0xFFE24B4A)
-        : rate > 60
-            ? const Color(0xFFBA7517)
-            : const Color(0xFF639922);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text('Taux de remplissage',
-                style: TextStyle(fontSize: 13, color: Colors.grey[500])),
-            const Spacer(),
-            Text('$rate%',
-                style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w500)),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
-          child: LinearProgressIndicator(
-            value: rate / 100,
-            minHeight: 6,
-            backgroundColor: Theme.of(context).dividerColor,
-            valueColor: AlwaysStoppedAnimation<Color>(color),
-          ),
-        ),
-      ],
-    );
-  }
 
-  Widget _buildTasksSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('TÂCHES ACTUELLES',
-            style: TextStyle(
-                fontSize: 11,
-                letterSpacing: 0.5,
-                color: Colors.grey[500])),
-        const SizedBox(height: 8),
-        ...widget.worker.tasks.map((t) => _TaskItem(task: t)),
-      ],
-    );
-  }
 
   Widget _buildFooterButtons(BuildContext context) {
     // On récupère les méthodes du State original
@@ -712,19 +651,6 @@ class _WorkerCardState extends State<_WorkerCard> {
           ),
         ),
       ],
-    );
-  }
-
-  PopupMenuItem<String> _buildStatusMenuItem(String value, String label, Color color) {
-    return PopupMenuItem<String>(
-      value: value,
-      child: Row(
-        children: [
-          Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
-          const SizedBox(width: 10),
-          Text(label, style: const TextStyle(fontSize: 13)),
-        ],
-      ),
     );
   }
 }
@@ -822,12 +748,14 @@ class _AddWorkerDialogState extends State<_AddWorkerDialog> {
   final _formKey = GlobalKey<FormState>();
   WorkerRole _selectedRole = WorkerRole.technicien;
   final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   final _cityCtrl = TextEditingController();
 
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _emailCtrl.dispose();
     _phoneCtrl.dispose();
     _cityCtrl.dispose();
     super.dispose();
@@ -855,6 +783,18 @@ class _AddWorkerDialogState extends State<_AddWorkerDialog> {
                 validator: (v) {
                   if (v == null || v.isEmpty) return 'Le nom est requis';
                   if (RegExp(r'[0-9]').hasMatch(v)) return 'Le nom ne peut pas contenir de chiffres';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              _DialogField(
+                label: 'Email', 
+                controller: _emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                validator: (v) {
+                  if (v == null || v.isEmpty) return 'L\'email est requis';
+                  final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                  if (!emailRegex.hasMatch(v)) return 'Format d\'email invalide';
                   return null;
                 },
               ),
@@ -904,7 +844,7 @@ class _AddWorkerDialogState extends State<_AddWorkerDialog> {
             final success = await provider.addWorker({
               "username": _nameCtrl.text.toLowerCase().replaceAll(' ', '.'),
               "nomcomplet": _nameCtrl.text,
-              "email": "${_nameCtrl.text.toLowerCase().replaceAll(' ', '.')}@recycle.dz", // Dummy email
+              "email": _emailCtrl.text,
               "password": "Password123", // Default password
               "phone": _phoneCtrl.text,
               "city": _cityCtrl.text,
@@ -1061,84 +1001,7 @@ class _RoleBtn extends StatelessWidget {
 
 
 
-// ─────────────────────────────────────────
-//  NEW WIDGET : WORKER PROFILE SHEET
-// ─────────────────────────────────────────
 
-class _WorkerProfileSheet extends StatelessWidget {
-  final Worker worker;
-  const _WorkerProfileSheet({required this.worker});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 30,
-                backgroundColor: Colors.green.withOpacity(0.1),
-                child: Text(worker.initials, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.green)),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(worker.nomcomplet, style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold)),
-                    Text(worker.role.name.toUpperCase(), style: TextStyle(color: Colors.grey[500], fontSize: 13)),
-                  ],
-                ),
-              ),
-              IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
-            ],
-          ),
-          const SizedBox(height: 24),
-          _ProfileInfoItem(icon: Icons.email_outlined, label: 'Email', value: worker.email),
-          _ProfileInfoItem(icon: Icons.phone_outlined, label: 'Téléphone', value: worker.phone ?? 'N/A'),
-          _ProfileInfoItem(icon: Icons.location_city_outlined, label: 'Ville', value: worker.city),
-          _ProfileInfoItem(icon: Icons.location_on_outlined, label: 'Adresse', value: worker.adress),
-          _ProfileInfoItem(icon: Icons.calendar_today_outlined, label: 'Membre depuis', value: '${worker.createdAt.day}/${worker.createdAt.month}/${worker.createdAt.year}'),
-          const SizedBox(height: 16),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileInfoItem extends StatelessWidget {
-  final IconData icon;
-  final String label, value;
-  const _ProfileInfoItem({required this.icon, required this.label, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Colors.green),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-              Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────────────
 //  NEW WIDGET : WORKER HISTORY DIALOG
@@ -1330,4 +1193,121 @@ class _WorkerHistoryDialog extends StatelessWidget {
     );
   }
 }
-
+
+class _WorkerProfileSheet extends StatelessWidget {
+  final Worker worker;
+  const _WorkerProfileSheet({required this.worker});
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.read<WorkerProvider>();
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: const EdgeInsets.all(24),
+      child: FutureBuilder<Map<String, dynamic>?>(
+        future: provider.fetchWorkerProfile(worker.id),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const SizedBox(
+              height: 200,
+              child: Center(child: CircularProgressIndicator(color: Colors.green)),
+            );
+          }
+
+          final data = snapshot.data;
+          // On récupère les infos réelles du profil si elles existent
+          final profile = data?['worker'] ?? {};
+          final email = profile['email'] ?? worker.email;
+          final phone = profile['phone'] ?? worker.phone ?? 'N/A';
+          final city = profile['city'] ?? worker.city;
+          final address = profile['adress'] ?? worker.adress;
+          
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  CircleAvatar(
+                    radius: 30,
+                    backgroundColor: Colors.green.withOpacity(0.1),
+                    child: Text(worker.initials, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 20, color: Colors.green)),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(worker.nomcomplet, style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold)),
+                        Text(worker.role.name.toUpperCase(), style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                      ],
+                    ),
+                  ),
+                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                ],
+              ),
+              const SizedBox(height: 24),
+              _ProfileItem(icon: Icons.email_outlined, label: 'Email', value: email),
+              _ProfileItem(icon: Icons.phone_outlined, label: 'Téléphone', value: phone),
+              _ProfileItem(icon: Icons.location_city_outlined, label: 'Ville', value: city),
+              _ProfileItem(icon: Icons.location_on_outlined, label: 'Adresse', value: address),
+              _ProfileItem(
+                icon: Icons.calendar_today_outlined, 
+                label: 'Membre depuis', 
+                value: '${worker.createdAt.day}/${worker.createdAt.month}/${worker.createdAt.year}'
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    // Logique d'édition future avec /worker/update/:id
+                  },
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: const Text('Modifier le profil'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
+          );
+        }
+      ),
+    );
+  }
+}
+
+class _ProfileItem extends StatelessWidget {
+  final IconData icon;
+  final String label, value;
+  const _ProfileItem({required this.icon, required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: Colors.green),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
