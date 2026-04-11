@@ -813,20 +813,27 @@ class _AddWorkerDialog extends StatefulWidget {
   State<_AddWorkerDialog> createState() => _AddWorkerDialogState();
 }
 
+const List<String> _wilayasAlgerie = [
+  "Adrar", "Chlef", "Laghouat", "Oum El Bouaghi", "Batna", "Béjaïa", "Biskra", "Béchar", "Blida", "Bouira",
+  "Tamanrasset", "Tébessa", "Tlemcen", "Tiaret", "Tizi Ouzou", "Alger", "Djelfa", "Jijel", "Sétif", "Saïda",
+  "Skikda", "Sidi Bel Abbès", "Annaba", "Guelma", "Constantine", "Médéa", "Mostaganem", "M'Sila", "Mascara",
+  "Ouargla", "Oran", "El Bayadh", "Illizi", "Bordj Bou Arréridj", "Boumerdès", "El Tarf", "Tindouf", "Tissemsilt",
+  "El Oued", "Khenchela", "Souk Ahras", "Tipaza", "Mila", "Aïn Defla", "Naâma", "Aïn Témouchent", "Ghardaïa", "Relizane"
+];
+
 class _AddWorkerDialogState extends State<_AddWorkerDialog> {
   final _formKey = GlobalKey<FormState>();
   WorkerRole _selectedRole = WorkerRole.technicien;
+  String? _selectedCity;
   final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  final _cityCtrl = TextEditingController();
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
-    _cityCtrl.dispose();
     super.dispose();
   }
 
@@ -879,10 +886,14 @@ class _AddWorkerDialogState extends State<_AddWorkerDialog> {
                 },
               ),
               const SizedBox(height: 12),
-              _DialogField(
-                label: 'Ville', 
-                controller: _cityCtrl,
-                validator: (v) => v == null || v.isEmpty ? 'La ville est requise' : null,
+              DropdownButtonFormField<String>(
+                value: _selectedCity,
+                decoration: _dropdownDecoration('Ville / Wilaya'),
+                items: _wilayasAlgerie.map((w) => DropdownMenuItem(value: w, child: Text(w, style: const TextStyle(fontSize: 13)))).toList(),
+                onChanged: (v) => setState(() => _selectedCity = v),
+                validator: (v) => v == null ? 'La ville est requise' : null,
+                dropdownColor: Theme.of(context).cardColor,
+                iconSize: 20,
               ),
               const SizedBox(height: 16),
               Row(
@@ -916,9 +927,8 @@ class _AddWorkerDialogState extends State<_AddWorkerDialog> {
               "email": _emailCtrl.text,
               "password": "Password123", // Default password
               "phone": _phoneCtrl.text,
-              "city": _cityCtrl.text,
+              "city": _selectedCity ?? "Inconnue",
               "role": _selectedRole.name,
-              "adress": "Non renseigné",
             });
 
             if (mounted) {
@@ -950,6 +960,17 @@ class _AddWorkerDialogState extends State<_AddWorkerDialog> {
               : const Text('Ajouter', style: TextStyle(fontSize: 13)),
         ),
       ],
+    );
+  }
+
+  InputDecoration _dropdownDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey[300]!)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey[300]!)),
+      focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.green, width: 1.5)),
     );
   }
 }
@@ -1377,7 +1398,6 @@ class _WorkerProfileSheet extends StatelessWidget {
               _ProfileItem(icon: Icons.email_outlined, label: 'Email', value: email),
               _ProfileItem(icon: Icons.phone_outlined, label: 'Téléphone', value: phone),
               _ProfileItem(icon: Icons.location_city_outlined, label: 'Ville', value: city),
-              _ProfileItem(icon: Icons.location_on_outlined, label: 'Adresse', value: address),
               const SizedBox(height: 24),
               
               SizedBox(
@@ -1487,8 +1507,7 @@ class _EditWorkerDialogState extends State<_EditWorkerDialog> {
   late TextEditingController _nameCtrl;
   late TextEditingController _emailCtrl;
   late TextEditingController _phoneCtrl;
-  late TextEditingController _cityCtrl;
-  late TextEditingController _addressCtrl;
+  String? _selectedCity;
 
   @override
   void initState() {
@@ -1496,8 +1515,12 @@ class _EditWorkerDialogState extends State<_EditWorkerDialog> {
     _nameCtrl = TextEditingController(text: widget.worker.nomcomplet ?? '');
     _emailCtrl = TextEditingController(text: widget.initialData['email'] ?? widget.worker.email ?? '');
     _phoneCtrl = TextEditingController(text: widget.initialData['phone'] ?? widget.worker.phone ?? '');
-    _cityCtrl = TextEditingController(text: widget.initialData['city'] ?? widget.worker.city ?? '');
-    _addressCtrl = TextEditingController(text: widget.initialData['adress'] ?? widget.worker.adress ?? '');
+    
+    // Initialisation de la ville par défaut
+    _selectedCity = widget.initialData['city'] ?? widget.worker.city;
+    if (_selectedCity != null && !_wilayasAlgerie.contains(_selectedCity)) {
+       _selectedCity = "Alger"; // Fallback
+    }
   }
 
   @override
@@ -1505,8 +1528,6 @@ class _EditWorkerDialogState extends State<_EditWorkerDialog> {
     _nameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
-    _cityCtrl.dispose();
-    _addressCtrl.dispose();
     super.dispose();
   }
 
@@ -1530,7 +1551,11 @@ class _EditWorkerDialogState extends State<_EditWorkerDialog> {
                 _DialogField(
                   label: 'Nom complet',
                   controller: _nameCtrl,
-                  validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Le nom est requis';
+                    if (RegExp(r'[0-9]').hasMatch(v)) return 'Le nom ne peut pas contenir de chiffres';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 12),
                 _DialogField(
@@ -1538,8 +1563,8 @@ class _EditWorkerDialogState extends State<_EditWorkerDialog> {
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
                   validator: (v) {
-                    if (v == null || v.isEmpty) return 'Requis';
-                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) return 'Format invalide';
+                    if (v == null || v.isEmpty) return 'L\'email est requis';
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) return 'Format d\'email invalide';
                     return null;
                   },
                 ),
@@ -1548,16 +1573,21 @@ class _EditWorkerDialogState extends State<_EditWorkerDialog> {
                   label: 'Téléphone',
                   controller: _phoneCtrl,
                   keyboardType: TextInputType.phone,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Le numéro est requis';
+                    if (!RegExp(r'^[0-9]+$').hasMatch(v)) return 'Uniquement des chiffres';
+                    if (v.length < 10) return 'Trop court (10 chiffres attendus)';
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 12),
-                _DialogField(
-                  label: 'Ville',
-                  controller: _cityCtrl,
-                ),
-                const SizedBox(height: 12),
-                _DialogField(
-                  label: 'Adresse',
-                  controller: _addressCtrl,
+                DropdownButtonFormField<String>(
+                  value: _selectedCity,
+                  decoration: _dropdownDecoration('Ville / Wilaya'),
+                  items: _wilayasAlgerie.map((w) => DropdownMenuItem(value: w, child: Text(w, style: const TextStyle(fontSize: 13)))).toList(),
+                  onChanged: (v) => setState(() => _selectedCity = v),
+                  validator: (v) => v == null ? 'Requis' : null,
+                  dropdownColor: Theme.of(context).cardColor,
                 ),
               ],
             ),
@@ -1577,8 +1607,7 @@ class _EditWorkerDialogState extends State<_EditWorkerDialog> {
               "nomcomplet": _nameCtrl.text,
               "email": _emailCtrl.text,
               "phone": _phoneCtrl.text,
-              "city": _cityCtrl.text,
-              "adress": _addressCtrl.text,
+              "city": _selectedCity ?? "",
             });
 
             if (mounted) {
@@ -1607,6 +1636,16 @@ class _EditWorkerDialogState extends State<_EditWorkerDialog> {
               : const Text('Enregistrer', style: TextStyle(fontSize: 13)),
         ),
       ],
+    );
+  }
+  InputDecoration _dropdownDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: Colors.grey[500], fontSize: 13),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey[300]!)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Colors.grey[300]!)),
+      focusedBorder: const OutlineInputBorder(borderSide: BorderSide(color: Colors.green, width: 1.5)),
     );
   }
 }
