@@ -14,6 +14,8 @@ import '../providers/settings_provider.dart';
 import '../providers/machine_provider.dart';
 import '../providers/notification_provider.dart';
 import 'package:intl/intl.dart';
+import '../models/worker_model.dart';
+import '../providers/worker_provider.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -199,7 +201,7 @@ class _DashboardHomeState extends State<DashboardHome> {
     }
   }
 
-  // 🔔 POPUP NOTIFICATIONS — uniquement non traitées (statut "envoyée")
+  // 🔔 POPUP NOTIFICATIONS
   void _showNotifications(BuildContext context, SettingsProvider settings) {
     showDialog(
       context: context,
@@ -208,174 +210,38 @@ class _DashboardHomeState extends State<DashboardHome> {
           builder: (context, provider, child) {
             return AlertDialog(
               backgroundColor: Theme.of(context).cardColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      const Icon(
-                        Icons.notifications_active,
-                        color: Colors.orange,
-                        size: 22,
-                      ),
+                      const Icon(Icons.notifications_active, color: Colors.orange, size: 22),
                       const SizedBox(width: 8),
                       const Text("Alertes en attente"),
                     ],
                   ),
-                  Row(
-                    children: [
-                      if (provider.isLoading)
-                        const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      IconButton(
-                        icon: const Icon(Icons.refresh, size: 20),
-                        onPressed: () => provider.fetchPendingNotifications(),
-                      ),
-                    ],
+                  IconButton(
+                    icon: const Icon(Icons.refresh, size: 20),
+                    onPressed: () => provider.fetchPendingNotifications(),
                   ),
                 ],
               ),
               content: SizedBox(
-                width: 400,
-                height: 450,
+                width: 500,
+                height: 500,
                 child: provider.pendingNotifications.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.check_circle_outline,
-                              size: 56,
-                              color: Colors.grey[400],
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              "Aucune notification en attente",
-                              style: GoogleFonts.poppins(color: Colors.grey),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              "Toutes les alertes ont été traitées",
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                color: Colors.grey[400],
-                              ),
-                            ),
-                          ],
-                        ),
-                      )
+                    ? _buildEmptyState()
                     : ListView.separated(
                         itemCount: provider.pendingNotifications.length,
-                        separatorBuilder: (context, index) =>
-                            const Divider(height: 1),
+                        separatorBuilder: (context, index) => const Divider(height: 1),
                         itemBuilder: (context, index) {
                           final notif = provider.pendingNotifications[index];
                           final String id = notif['_id'].toString();
-                          final String type =
-                              (notif['type'] ?? 'info').toString();
-                          final String message = notif['message'] ?? '...';
-
-                          IconData leadingIcon = Icons.notifications;
-                          Color iconColor = Colors.blue;
-                          if (type.contains('panne')) {
-                            leadingIcon = Icons.error_outline;
-                            iconColor = Colors.red;
-                          } else if (type.contains('remplissage')) {
-                            leadingIcon = Icons.battery_charging_full;
-                            iconColor = Colors.orange;
-                          }
-
-                          return ListTile(
-                            contentPadding:
-                                const EdgeInsets.symmetric(vertical: 8),
-                            leading: CircleAvatar(
-                              backgroundColor: iconColor.withOpacity(0.1),
-                              child: Icon(
-                                leadingIcon,
-                                color: iconColor,
-                                size: 20,
-                              ),
-                            ),
-                            title: Text(
-                              type.toUpperCase(),
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey,
-                              ),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 4),
-                                Text(
-                                  message,
-                                  style: TextStyle(
-                                    color: Theme.of(context)
-                                        .textTheme
-                                        .bodyMedium
-                                        ?.color,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.access_time,
-                                        size: 10, color: Colors.grey),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      _formatDate(notif['created_at']),
-                                      style: const TextStyle(
-                                          fontSize: 10, color: Colors.grey),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                            trailing: Tooltip(
-                              message: "Marquer comme traité",
-                              child: IconButton(
-                                icon: const Icon(
-                                  Icons.check_circle_outline,
-                                  color: Colors.green,
-                                ),
-                                onPressed: () async {
-                                  final String typeLower = type.toLowerCase();
-                                  if (typeLower.contains('panne')) {
-                                    String? tech = await _showInputDialog(context, "Nom du technicien");
-                                    if (tech != null && tech.isNotEmpty) {
-                                      bool ok = await provider.markAsRead(id, technician: tech);
-                                      if (!ok && context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Échec du traitement côté serveur")));
-                                      }
-                                    }
-                                  } else if (typeLower.contains('remplissage')) {
-                                    String? col = await _showInputDialog(context, "Nom du collecteur");
-                                    if (col != null && col.isNotEmpty) {
-                                      bool ok = await provider.markAsRead(id, collector: col);
-                                      if (!ok && context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Échec du traitement côté serveur")));
-                                      }
-                                    }
-                                  } else {
-                                    bool ok = await provider.markAsRead(id);
-                                    if (!ok && context.mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Échec du traitement côté serveur")));
-                                    }
-                                  }
-                                },
-                              ),
-                            ),
-                          );
+                          final String status = notif['status'] ?? 'envoyée';
+                          final String type = (notif['type'] ?? 'info').toString();
+                          
+                          return _buildNotificationItem(context, notif, provider);
                         },
                       ),
               ),
@@ -392,29 +258,160 @@ class _DashboardHomeState extends State<DashboardHome> {
     );
   }
 
-  Future<String?> _showInputDialog(BuildContext context, String title) {
-    TextEditingController controller = TextEditingController();
-    return showDialog<String>(
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.check_circle_outline, size: 56, color: Colors.grey[400]),
+          const SizedBox(height: 12),
+          Text("Aucune notification en attente", style: GoogleFonts.poppins(color: Colors.grey)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationItem(BuildContext context, dynamic notif, NotificationProvider provider) {
+    final String id = notif['_id'].toString();
+    final String status = notif['status'] ?? 'envoyée';
+    final String type = (notif['type'] ?? 'info').toString();
+    final String message = notif['message'] ?? '...';
+    final String workerName = notif['worker_name'] ?? '';
+
+    IconData leadingIcon = Icons.notifications;
+    Color iconColor = Colors.blue;
+    if (type.contains('panne')) {
+      leadingIcon = Icons.error_outline;
+      iconColor = Colors.red;
+    } else if (type.contains('remplissage')) {
+      leadingIcon = Icons.battery_charging_full;
+      iconColor = Colors.orange;
+    }
+
+    return ListTile(
+      contentPadding: const EdgeInsets.symmetric(vertical: 8),
+      leading: CircleAvatar(
+        backgroundColor: iconColor.withOpacity(0.1),
+        child: Icon(leadingIcon, color: iconColor, size: 20),
+      ),
+      title: Row(
+        children: [
+          Text(type.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+          const SizedBox(width: 8),
+          _buildStatusBadge(status),
+        ],
+      ),
+      subtitle: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: 4),
+          Text(message, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+          if (status == 'assignée')
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text("Assigné à : $workerName", style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.bold)),
+            ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              const Icon(Icons.access_time, size: 10, color: Colors.grey),
+              const SizedBox(width: 4),
+              Text(_formatDate(notif['created_at']), style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            ],
+          ),
+        ],
+      ),
+      trailing: _buildNotificationActions(context, notif, provider),
+    );
+  }
+
+  Widget _buildStatusBadge(String status) {
+    Color color = Colors.orange;
+    String label = "EN ATTENTE";
+    if (status == 'assignée') {
+      color = Colors.blue;
+      label = "EN INTERVENTION";
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(4), border: Border.all(color: color)),
+      child: Text(label, style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: color)),
+    );
+  }
+
+  Widget _buildNotificationActions(BuildContext context, dynamic notif, NotificationProvider provider) {
+    final String id = notif['_id'].toString();
+    final String status = notif['status'] ?? 'envoyée';
+    final String type = (notif['type'] ?? 'info').toString();
+
+    if (status == 'envoyée') {
+      return ElevatedButton.icon(
+        onPressed: () => _showWorkerAssignmentDialog(context, id, type, provider),
+        icon: const Icon(Icons.person_add, size: 16),
+        label: const Text("Assigner", style: TextStyle(fontSize: 12)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+        ),
+      );
+    } else {
+      return ElevatedButton.icon(
+        onPressed: () async {
+          bool ok = await provider.completeNotification(id);
+          if (ok && context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Notification clôturée")));
+          }
+        },
+        icon: const Icon(Icons.check, size: 16),
+        label: const Text("Clôturer", style: TextStyle(fontSize: 12)),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.green,
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+        ),
+      );
+    }
+  }
+
+  void _showWorkerAssignmentDialog(BuildContext context, String notifId, String type, NotificationProvider provider) async {
+    final workerProvider = Provider.of<WorkerProvider>(context, listen: false);
+    await workerProvider.fetchWorkers();
+
+    WorkerRole requiredRole = type.toLowerCase().contains('panne') ? WorkerRole.technicien : WorkerRole.videur;
+    List<Worker> availableWorkers = workerProvider.getAvailableWorkers(requiredRole);
+
+    if (!context.mounted) return;
+
+    showDialog(
       context: context,
       builder: (ctx) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text(title, style: const TextStyle(fontSize: 16)),
-          content: TextField(
-            controller: controller,
-            decoration: const InputDecoration(
-              hintText: "Saisir le nom",
-            ),
+          title: Text("Assigner un ${requiredRole == WorkerRole.technicien ? 'Technicien' : 'Videur'}"),
+          content: SizedBox(
+            width: 300,
+            child: availableWorkers.isEmpty
+                ? const Text("Aucun travailleur disponible pour ce rôle.", style: TextStyle(color: Colors.red))
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: availableWorkers.map((w) {
+                      return ListTile(
+                        leading: CircleAvatar(child: Text(w.initials)),
+                        title: Text(w.nomcomplet),
+                        subtitle: Text(w.email),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          bool ok = await provider.assignWorker(notifId, w.nomcomplet);
+                          if (ok && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Assigné à ${w.nomcomplet}")));
+                          }
+                        },
+                      );
+                    }).toList(),
+                  ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text("Annuler"),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(ctx, controller.text),
-              child: const Text("Traiter"),
-            ),
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Annuler")),
           ],
         );
       },

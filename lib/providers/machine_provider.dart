@@ -205,4 +205,25 @@ class MachineProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // 7. Mettre à jour les bacs d'une machine (PUT /machine/bin/update)
+  Future<bool> updateBin(String machineId, Map<String, dynamic> binData) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/machine/bin/update'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          "machine_id": machineId,
+          ...binData
+        }),
+      );
+      if (response.statusCode == 200) {
+        await fetchMachines();
+        return true;
+      }
+    } catch (e) {
+      print("Erreur update bin: $e");
+    }
+    return false;
+  }
 }

@@ -21,13 +21,13 @@ class NotificationProvider with ChangeNotifier {
 
   final String baseUrl = "https://rvm-backend-oaot.onrender.com";
 
-  // 1. Récupérer uniquement les notifications non traitées (statut "envoyée") → Dashboard
+  // 1. Récupérer les notifications en attente (envoyée) ou en cours (assignée)
   Future<void> fetchPendingNotifications() async {
     _isLoading = true;
     notifyListeners();
     try {
-      final response =
-          await http.get(Uri.parse('$baseUrl/notif/admin/envoyees'));
+      // On peut maintenant vouloir voir aussi les notifications assignées sur le Dashboard
+      final response = await http.get(Uri.parse('$baseUrl/notif/admin/envoyees'));
       if (response.statusCode == 200) {
         _pendingNotifications = json.decode(response.body);
       } else {
@@ -59,21 +59,40 @@ class NotificationProvider with ChangeNotifier {
     return [];
   }
 
-  // 3. Marquer une notification comme traitée → la retire IMMÉDIATEMENT du Dashboard
-  Future<bool> markAsRead(String id, {String? technician, String? collector}) async {
+  // 3. Assigner un travailleur à une notification
+  Future<bool> assignWorker(String id, String workerName) async {
     try {
-      final body = <String, dynamic>{"status": "traitée"};
-      if (technician != null && technician.isNotEmpty) {
-        body["technician"] = technician;
-      }
-      if (collector != null && collector.isNotEmpty) {
-        body["collector"] = collector;
-      }
-
       final response = await http.put(
         Uri.parse('$baseUrl/notif/status/$id'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode(body),
+        body: json.encode({
+          "status": "assignée",
+          "worker_name": workerName
+        }),
+      );
+      if (response.statusCode == 200) {
+        // Mettre à jour localement le statut de la notification
+        int index = _pendingNotifications.indexWhere((n) => n['_id'] == id);
+        if (index != -1) {
+          _pendingNotifications[index]['status'] = 'assignée';
+          _pendingNotifications[index]['worker_name'] = workerName;
+        }
+        notifyListeners();
+        return true;
+      }
+    } catch (e) {
+      print("Erreur assignWorker: $e");
+    }
+    return false;
+  }
+
+  // 4. Clôturer une notification (Méthode manuelle par l'admin)
+  Future<bool> completeNotification(String id) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrl/notif/status/$id'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({"status": "traitée"}),
       );
       if (response.statusCode == 200) {
         _pendingNotifications.removeWhere((n) => n['_id'] == id);
@@ -81,8 +100,13 @@ class NotificationProvider with ChangeNotifier {
         return true;
       }
     } catch (e) {
-      print("Erreur markAsRead: $e");
+      print("Erreur completeNotification: $e");
     }
     return false;
+  }
+
+  // Marquer comme traitée (ancien nom, conservé pour compatibilité si besoin)
+  Future<bool> markAsRead(String id, {String? technician, String? collector}) async {
+    return completeNotification(id);
   }
 }

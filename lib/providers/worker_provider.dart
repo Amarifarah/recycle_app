@@ -221,4 +221,11 @@ class WorkerProvider with ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // 10. Obtenir les travailleurs filtrés par rôle et qui sont "Actif"
+  List<Worker> getAvailableWorkers(WorkerRole role) {
+    return _workers
+        .where((w) => w.role == role && w.status == WorkerStatus.available)
+        .toList();
+  }
 }
