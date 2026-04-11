@@ -498,6 +498,55 @@ class _WorkerCardState extends State<_WorkerCard> {
     if (mounted) setState(() => _isUpdating = false);
   }
 
+  Future<void> _handleDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Theme.of(context).cardColor,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text('Confirmer la suppression', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18)),
+        content: Text('Voulez-vous vraiment supprimer ${widget.worker.nomcomplet} ? Cette action est irréversible.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text('Annuler', style: TextStyle(color: Colors.grey[600])),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      setState(() => _isUpdating = true);
+      final provider = context.read<WorkerProvider>();
+      final success = await provider.deleteWorker(widget.worker.id);
+      
+      if (success) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Travailleur supprimé')),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Erreur : ${provider.error ?? "Impossible de supprimer"}')),
+          );
+        }
+      }
+      if (mounted) setState(() => _isUpdating = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -543,9 +592,23 @@ class _WorkerCardState extends State<_WorkerCard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(widget.worker.nomcomplet,
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.w600)),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(widget.worker.nomcomplet,
+                        style: const TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.w600, overflow: TextOverflow.ellipsis)),
+                  ),
+                  IconButton(
+                    onPressed: () => _handleDelete(context),
+                    icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    visualDensity: VisualDensity.compact,
+                    tooltip: 'Supprimer le travailleur',
+                  ),
+                ],
+              ),
               const SizedBox(height: 2),
               Text(
                 widget.worker.role == WorkerRole.videur
@@ -563,7 +626,13 @@ class _WorkerCardState extends State<_WorkerCard> {
               ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.green))
               : PopupMenuButton<String>(
                   tooltip: 'Gérer manuellement le statut',
-                  onSelected: (val) => _updateStatus(context, val),
+                  onSelected: (val) {
+                    if (val == 'delete') {
+                      _handleDelete(context);
+                    } else {
+                      _updateStatus(context, val);
+                    }
+                  },
                   itemBuilder: (context) => [
                     _buildStatusMenuItem('actif', 'Disponible', const Color(0xFF639922)),
                     _buildStatusMenuItem('inactif', 'Mettre hors ligne', const Color(0xFFE24B4A)),
@@ -1218,13 +1287,17 @@ class _WorkerProfileSheet extends StatelessWidget {
             );
           }
 
-          final data = snapshot.data;
-          // On récupère les infos réelles du profil si elles existent
-          final profile = data?['worker'] ?? {};
-          final email = profile['email'] ?? worker.email;
+          final profile = snapshot.data ?? {}; 
+          final email = profile['email'] ?? worker.email ?? 'Non renseigné';
           final phone = profile['phone'] ?? worker.phone ?? 'N/A';
-          final city = profile['city'] ?? worker.city;
-          final address = profile['adress'] ?? worker.adress;
+          final city = profile['city'] ?? worker.city ?? 'N/A';
+          final address = profile['adress'] ?? worker.adress ?? 'Non précisée';
+          
+          // Nouvelles stats
+          final statusLabel = profile['status_label'] ?? 'Inconnu';
+          final machinesCount = profile['machines'] ?? 0;
+          final tasksCount = profile['taches_completees'] ?? 0;
+          final currentTasks = profile['taches_actuelles'] as List? ?? [];
           
           return Column(
             mainAxisSize: MainAxisSize.min,
@@ -1243,7 +1316,15 @@ class _WorkerProfileSheet extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(worker.nomcomplet, style: GoogleFonts.outfit(fontSize: 20, fontWeight: FontWeight.bold)),
-                        Text(worker.role.name.toUpperCase(), style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(statusLabel, style: const TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                        ),
                       ],
                     ),
                   ),
@@ -1251,21 +1332,65 @@ class _WorkerProfileSheet extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 24),
+              
+              // SECTION : STATS
+              Row(
+                children: [
+                  Expanded(child: _StatBox(label: 'Machines', value: '$machinesCount', icon: Icons.precision_manufacturing_outlined)),
+                  const SizedBox(width: 12),
+                  Expanded(child: _StatBox(label: 'Tâches', value: '$tasksCount', icon: Icons.check_circle_outline)),
+                ],
+              ),
+              const SizedBox(height: 24),
+
+              // SECTION : MISSION ACTUELLE (Si existante)
+              if (currentTasks.isNotEmpty) ...[
+                const Text('⚡ MISSION ACTUELLE', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.orange)),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.05),
+                    border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        currentTasks[0]['message'] ?? 'Intervention en cours',
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Machine : ${currentTasks[0]['machine']?['name'] ?? 'Inconnue'}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 24),
+              ],
+
+              const Text('CONTACTS & LOCALISATION', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+              const SizedBox(height: 12),
               _ProfileItem(icon: Icons.email_outlined, label: 'Email', value: email),
               _ProfileItem(icon: Icons.phone_outlined, label: 'Téléphone', value: phone),
               _ProfileItem(icon: Icons.location_city_outlined, label: 'Ville', value: city),
               _ProfileItem(icon: Icons.location_on_outlined, label: 'Adresse', value: address),
-              _ProfileItem(
-                icon: Icons.calendar_today_outlined, 
-                label: 'Membre depuis', 
-                value: '${worker.createdAt.day}/${worker.createdAt.month}/${worker.createdAt.year}'
-              ),
               const SizedBox(height: 24),
+              
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    // Logique d'édition future avec /worker/update/:id
+                    showDialog(
+                      context: context,
+                      builder: (_) => _EditWorkerDialog(
+                        worker: worker,
+                        initialData: profile,
+                      ),
+                    );
                   },
                   icon: const Icon(Icons.edit_outlined, size: 18),
                   label: const Text('Modifier le profil'),
@@ -1308,6 +1433,180 @@ class _ProfileItem extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+//  WIDGET : STAT BOX (Helper)
+// ─────────────────────────────────────────
+
+class _StatBox extends StatelessWidget {
+  final String label, value;
+  final IconData icon;
+
+  const _StatBox({required this.label, required this.value, required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).dividerColor.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Theme.of(context).dividerColor.withOpacity(0.1)),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 20, color: Colors.green),
+          const SizedBox(height: 8),
+          Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────
+//  DIALOG : MODIFIER UN TRAVAILLEUR
+// ─────────────────────────────────────────
+
+class _EditWorkerDialog extends StatefulWidget {
+  final Worker worker;
+  final Map<String, dynamic> initialData;
+
+  const _EditWorkerDialog({required this.worker, required this.initialData});
+
+  @override
+  State<_EditWorkerDialog> createState() => _EditWorkerDialogState();
+}
+
+class _EditWorkerDialogState extends State<_EditWorkerDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _nameCtrl;
+  late TextEditingController _emailCtrl;
+  late TextEditingController _phoneCtrl;
+  late TextEditingController _cityCtrl;
+  late TextEditingController _addressCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameCtrl = TextEditingController(text: widget.worker.nomcomplet ?? '');
+    _emailCtrl = TextEditingController(text: widget.initialData['email'] ?? widget.worker.email ?? '');
+    _phoneCtrl = TextEditingController(text: widget.initialData['phone'] ?? widget.worker.phone ?? '');
+    _cityCtrl = TextEditingController(text: widget.initialData['city'] ?? widget.worker.city ?? '');
+    _addressCtrl = TextEditingController(text: widget.initialData['adress'] ?? widget.worker.adress ?? '');
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
+    _cityCtrl.dispose();
+    _addressCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<WorkerProvider>();
+
+    return AlertDialog(
+      backgroundColor: Theme.of(context).cardColor,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      title: Text('Modifier le profil',
+          style: GoogleFonts.outfit(fontSize: 18, fontWeight: FontWeight.w600)),
+      content: Form(
+        key: _formKey,
+        child: SizedBox(
+          width: 400,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _DialogField(
+                  label: 'Nom complet',
+                  controller: _nameCtrl,
+                  validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
+                ),
+                const SizedBox(height: 12),
+                _DialogField(
+                  label: 'Email',
+                  controller: _emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  validator: (v) {
+                    if (v == null || v.isEmpty) return 'Requis';
+                    if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) return 'Format invalide';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                _DialogField(
+                  label: 'Téléphone',
+                  controller: _phoneCtrl,
+                  keyboardType: TextInputType.phone,
+                ),
+                const SizedBox(height: 12),
+                _DialogField(
+                  label: 'Ville',
+                  controller: _cityCtrl,
+                ),
+                const SizedBox(height: 12),
+                _DialogField(
+                  label: 'Adresse',
+                  controller: _addressCtrl,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Annuler', style: TextStyle(color: Colors.grey[600])),
+        ),
+        ElevatedButton(
+          onPressed: () async {
+            if (!_formKey.currentState!.validate()) return;
+
+            final success = await provider.updateWorkerProfile(widget.worker.id, {
+              "nomcomplet": _nameCtrl.text,
+              "email": _emailCtrl.text,
+              "phone": _phoneCtrl.text,
+              "city": _cityCtrl.text,
+              "adress": _addressCtrl.text,
+            });
+
+            if (mounted) {
+              if (success) {
+                Navigator.pop(context); // Fermer le dialogue
+                Navigator.pop(context); // Fermer le bottom sheet pour forcer le rafraîchissement
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Profil mis à jour avec succès')),
+                );
+                provider.fetchWorkers(); // Rafraîchir la liste principale
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Erreur : ${provider.error ?? "Inconnue"}')),
+                );
+              }
+            }
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.green,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          child: provider.isLoading
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('Enregistrer', style: TextStyle(fontSize: 13)),
+        ),
+      ],
     );
   }
 }
