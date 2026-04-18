@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -29,6 +30,7 @@ class _MachinesPageState extends State<MachinesPage> {
   final TextEditingController lonController = TextEditingController();
   String? machineType;
   String? machineLocation;
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   final List<String> typeOptions = ["Petit", "Grand"];
   final List<String> locationOptions = [
@@ -125,76 +127,120 @@ class _MachinesPageState extends State<MachinesPage> {
               width: MediaQuery.of(context).size.width * 0.7,
               constraints: const BoxConstraints(maxWidth: 800),
               padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    "Ajouter une Machine",
-                    style: GoogleFonts.outfit(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: textColor,
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      "Ajouter une Machine",
+                      style: GoogleFonts.outfit(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: textColor,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 25),
-                  _buildField(idController, "ID Machine", Icons.fingerprint, isDark),
-                  _buildField(nameController, "Nom", Icons.settings, isDark),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _buildField(latController, "Latitude", Icons.location_on, isDark),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _buildField(lonController, "Longitude", Icons.location_on, isDark),
-                      ),
-                    ],
-                  ),
-                  _buildDropdown(
-                    "Type de Machine",
-                    Icons.aspect_ratio,
-                    machineType,
-                    typeOptions,
-                    (v) => setModalState(() => machineType = v),
-                    isDark,
-                  ),
-                  const SizedBox(height: 10),
-                  _buildDropdown(
-                    "Emplacement",
-                    Icons.location_on,
-                    machineLocation,
-                    locationOptions,
-                    (v) => setModalState(() => machineLocation = v),
-                    isDark,
-                  ),
-                  const SizedBox(height: 35),
-                  SizedBox(
-                    width: double.infinity,
-                    height: 60,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: darkGreen,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
+                    const SizedBox(height: 25),
+                    _buildField(idController, "ID Machine", Icons.fingerprint, isDark,
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) return "Veuillez entrer l'ID Machine.";
+                        if (int.tryParse(value.trim()) == null) return "L'ID doit être numérique.";
+                        return null;
+                      },
+                    ),
+                    _buildField(nameController, "Nom", Icons.settings, isDark,
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) return "Veuillez entrer le nom.";
+                        return null;
+                      },
+                    ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildField(latController, "Latitude (-90 à 90)", Icons.location_on, isDark,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*'))],
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) return "Veuillez entrer la latitude.";
+                              final lat = double.tryParse(value.trim());
+                              if (lat == null) return "Valeur numérique requise.";
+                              if (lat < -90 || lat > 90) return "Entre -90 et 90.";
+                              return null;
+                            },
+                          ),
                         ),
-                        elevation: 0,
-                      ),
-                      onPressed: provider.isLoading
-                          ? null
-                          : () => _handleSave(setModalState),
-                      child: provider.isLoading
-                          ? const CircularProgressIndicator(color: Colors.white)
-                          : const Text(
-                              "ENREGISTRER",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
-                            ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _buildField(lonController, "Longitude (-180 à 180)", Icons.location_on, isDark,
+                            keyboardType: const TextInputType.numberWithOptions(decimal: true, signed: true),
+                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^-?\d*\.?\d*'))],
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) return "Veuillez entrer la longitude.";
+                              final lng = double.tryParse(value.trim());
+                              if (lng == null) return "Valeur numérique requise.";
+                              if (lng < -180 || lng > 180) return "Entre -180 et 180.";
+                              return null;
+                            },
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                ],
+                    _buildDropdown(
+                      "Type de Machine",
+                      Icons.aspect_ratio,
+                      machineType,
+                      typeOptions,
+                      (v) => setModalState(() => machineType = v),
+                      isDark,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return "Veuillez choisir un type.";
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    _buildDropdown(
+                      "Emplacement",
+                      Icons.location_on,
+                      machineLocation,
+                      locationOptions,
+                      (v) => setModalState(() => machineLocation = v),
+                      isDark,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return "Veuillez choisir un emplacement.";
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 35),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 60,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: darkGreen,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15),
+                          ),
+                          elevation: 0,
+                        ),
+                        onPressed: provider.isLoading
+                            ? null
+                            : () => _handleSave(setModalState),
+                        child: provider.isLoading
+                            ? const CircularProgressIndicator(color: Colors.white)
+                            : const Text(
+                                "ENREGISTRER",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
           );
@@ -207,12 +253,18 @@ class _MachinesPageState extends State<MachinesPage> {
     TextEditingController ctrl,
     String label,
     IconData icon,
-    bool isDark,
-  ) {
+    bool isDark, {
+    TextInputType? keyboardType,
+    List<TextInputFormatter>? inputFormatters,
+    String? Function(String?)? validator,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15),
-      child: TextField(
+      child: TextFormField(
         controller: ctrl,
+        keyboardType: keyboardType,
+        inputFormatters: inputFormatters,
+        validator: validator,
         style: TextStyle(color: isDark ? Colors.white : Colors.black),
         decoration: InputDecoration(
           labelText: label,
@@ -246,12 +298,14 @@ class _MachinesPageState extends State<MachinesPage> {
     String? value,
     List<String> options,
     Function(String?) onChanged,
-    bool isDark,
-  ) {
+    bool isDark, {
+    String? Function(String?)? validator,
+  }) {
     return DropdownButtonFormField<String>(
       value: value,
       dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
       style: TextStyle(color: isDark ? Colors.white : Colors.black),
+      validator: validator,
       decoration: InputDecoration(
         labelText: label,
         labelStyle: TextStyle(
@@ -355,19 +409,20 @@ class _MachinesPageState extends State<MachinesPage> {
   }
 
   Future<void> _handleSave(StateSetter setModalState) async {
-    if (idController.text.isEmpty || nameController.text.isEmpty) return;
+    // Valider tous les champs via le Form — chaque champ affiche son erreur
+    if (!_formKey.currentState!.validate()) return;
 
-    double lat = double.tryParse(latController.text) ?? 0.0;
-    double lng = double.tryParse(lonController.text) ?? 0.0;
+    double lat = double.parse(latController.text.trim());
+    double lng = double.parse(lonController.text.trim());
 
     Map<String, String> locationData = await _getLocationData(lat, lng);
 
-    final String serverType = (machineType ?? "petit").toLowerCase();
-    final String serverLocation = (machineLocation ?? "institut").toLowerCase();
+    final String serverType = machineType!.toLowerCase();
+    final String serverLocation = machineLocation!.toLowerCase();
 
     final newMachine = {
-      "machine_id": idController.text,
-      "name": nameController.text,
+      "machine_id": idController.text.trim(),
+      "name": nameController.text.trim(),
       "latitude": lat,
       "longitude": lng,
       "city": locationData['city'],
