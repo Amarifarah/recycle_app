@@ -71,14 +71,28 @@ class _LoginPageState extends State<LoginPage> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           // Logo
-                          Text(
-                            'GREENMACHINE',
-                            style: GoogleFonts.outfit(
-                              fontSize: 36,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF064E3B),
-                              letterSpacing: 2,
-                            ),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 50,
+                                height: 50,
+                                decoration: const BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: Color(0xFF16A34A),
+                                ),
+                                child: const Icon(Icons.recycling, color: Colors.white, size: 30),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                'GreenMachine',
+                                style: GoogleFonts.outfit(
+                                  fontSize: 34,
+                                  fontWeight: FontWeight.bold,
+                                  color: const Color(0xFF15803D),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 16),
 
@@ -171,14 +185,28 @@ class _LoginPageState extends State<LoginPage> {
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               if (width <= 800) ...[
-                                Text(
-                                  'GREENMACHINE',
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.bold,
-                                    color: const Color(0xFF064E3B),
-                                    letterSpacing: 1.5,
-                                  ),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      width: 36,
+                                      height: 36,
+                                      decoration: const BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Color(0xFF16A34A),
+                                      ),
+                                      child: const Icon(Icons.recycling, color: Colors.white, size: 22),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'GreenMachine',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: const Color(0xFF15803D),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                                 const SizedBox(height: 16),
                               ],

@@ -53,14 +53,28 @@ class _SideBarState extends State<SideBar> {
           if (!isCollapsed)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Text(
-                'GREENMACHINE',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF064E3B),
-                  letterSpacing: 1.5,
-                ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Color(0xFF16A34A),
+                    ),
+                    child: const Icon(Icons.recycling, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'GreenMachine',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: const Color(0xFF15803D),
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ],
               ),
             ),
           // ---- Bouton collapse ----
