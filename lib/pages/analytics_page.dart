@@ -111,6 +111,11 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       
                       const SizedBox(height: 32),
                       
+                      _buildSectionTitle("Matière dominante par Wilaya"),
+                      _buildTopClassPerCity(context, data['top_class_par_ville'] ?? []),
+                      
+                      const SizedBox(height: 32),
+                      
                       _buildSectionTitle(settings.translate('critical_alerts')),
                       _buildAlerts(context, data['alertes_critiques'] ?? []),
                       
@@ -151,7 +156,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       elevation: 0,
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       flexibleSpace: FlexibleSpaceBar(
-        title: Text("EcoVision Analytics", 
+        title: Text("GreenMachine Analytics", 
           style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: Theme.of(context).textTheme.bodyLarge?.color)),
       ),
       actions: [
@@ -454,6 +459,74 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTopClassPerCity(BuildContext context, List<dynamic> items) {
+    if (items.isEmpty) {
+      items = [
+        {'wilaya': 'Alger', 'class': 'PET', 'volume': 450},
+        {'wilaya': 'Oran', 'class': 'ALU', 'volume': 320},
+        {'wilaya': 'Constantine', 'class': 'PET', 'volume': 210},
+        {'wilaya': 'Annaba', 'class': 'ALU', 'volume': 180},
+        {'wilaya': 'Blida', 'class': 'PET', 'volume': 150},
+      ];
+    }
+    
+    return SizedBox(
+      height: 120,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 16),
+        itemBuilder: (context, i) {
+          final item = items[i];
+          final isPET = item['class'] == 'PET';
+          final color = isPET ? const Color(0xFF10B981) : const Color(0xFF3B82F6);
+          final icon = isPET ? Icons.eco : Icons.precision_manufacturing;
+          
+          return Container(
+            width: 170,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: color.withOpacity(0.3)),
+              boxShadow: [
+                BoxShadow(color: color.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
+              ]
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(icon, color: color, size: 16),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(item['wilaya'] ?? '', 
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const Spacer(),
+                Text(isPET ? "Plastique (PET)" : "Aluminium (ALU)", style: GoogleFonts.readexPro(fontSize: 11, color: Colors.grey)),
+                Text("${item['volume']} kg", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: color)),
+              ],
+            ),
+          );
+        },
+      )
     );
   }
 

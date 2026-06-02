@@ -49,37 +49,36 @@ class _SideBarState extends State<SideBar> {
       ),
       child: Column(
         children: [
-          const SizedBox(height: 20),
-          // ---- LOGO + Bouton collapse ----
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: isCollapsed
-                  ? MainAxisAlignment.center
-                  : MainAxisAlignment.spaceBetween,
-              children: [
-                if (!isCollapsed)
-                  Text(
-                    "EcoVision",
-                    style: TextStyle(
-                      fontSize: 22,
-                      color: textColor,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                IconButton(
-                  icon: Icon(
-                    isCollapsed ? Icons.menu : Icons.menu_open,
-                    color: textColor.withOpacity(0.8),
-                  ),
-                  onPressed: () => setState(() => isCollapsed = !isCollapsed),
+          const SizedBox(height: 12),
+          if (!isCollapsed)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Text(
+                'GREENMACHINE',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: const Color(0xFF064E3B),
+                  letterSpacing: 1.5,
                 ),
-              ],
+              ),
+            ),
+          // ---- Bouton collapse ----
+          Align(
+            alignment: isCollapsed ? Alignment.center : Alignment.centerRight,
+            child: Padding(
+              padding: const EdgeInsets.only(right: 4),
+              child: IconButton(
+                icon: Icon(
+                  isCollapsed ? Icons.menu : Icons.menu_open,
+                  color: textColor.withOpacity(0.8),
+                ),
+                onPressed: () => setState(() => isCollapsed = !isCollapsed),
+              ),
             ),
           ),
 
-          const SizedBox(height: 30),
+          const SizedBox(height: 12),
 
           // ---- MENU ITEMS ----
           _buildItem(context, Icons.dashboard_outlined, "dashboard"),

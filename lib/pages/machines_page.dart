@@ -1157,69 +1157,41 @@ class _MachinesPageState extends State<MachinesPage> {
       backgroundColor: isDark
           ? const Color(0xFF111827)
           : const Color(0xFFF9FAFB),
-      appBar: AppBar(
-        title: Text(
-          "Parc Machines",
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : darkGreen,
-          ),
-        ),
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-      ),
-      body: RefreshIndicator(
-        onRefresh: () => provider.fetchMachines(),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              TextField(
-                onChanged: (v) => setState(() => searchQuery = v),
-                style: TextStyle(color: isDark ? Colors.white : Colors.black),
-                decoration: InputDecoration(
-                  hintText: "Rechercher...",
-                  hintStyle: TextStyle(
-                    color: isDark ? Colors.white54 : Colors.grey,
-                  ),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: isDark ? Colors.white54 : Colors.grey,
-                  ),
-                  filled: true,
-                  fillColor: isDark ? Colors.white10 : Colors.white,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(15),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 15),
-              _buildStatusFilters(),
-              const SizedBox(height: 15),
-              SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: ElevatedButton.icon(
-                  onPressed: _showAddMachineDialog,
-                  icon: const Icon(Icons.add, color: Colors.white),
-                  label: const Text(
-                    "AJOUTER UNE MACHINE",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: darkGreen,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Expanded(
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(context, isDark),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => provider.fetchMachines(),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      TextField(
+                        onChanged: (v) => setState(() => searchQuery = v),
+                        style: TextStyle(color: isDark ? Colors.white : Colors.black),
+                        decoration: InputDecoration(
+                          hintText: "Rechercher...",
+                          hintStyle: TextStyle(
+                            color: isDark ? Colors.white54 : Colors.grey,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.search,
+                            color: isDark ? Colors.white54 : Colors.grey,
+                          ),
+                          filled: true,
+                          fillColor: isDark ? Colors.white10 : Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(15),
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 15),
+                      _buildStatusFilters(),
+                      const SizedBox(height: 20),
+                      Expanded(
                 child: ListView.builder(
                   itemCount: filtered.length,
                   itemBuilder: (context, i) {
@@ -1297,6 +1269,57 @@ class _MachinesPageState extends State<MachinesPage> {
             ],
           ),
         ),
+      ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context, bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        border: Border(bottom: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Parc Machines',
+                style: GoogleFonts.outfit(
+                  fontSize: 26, 
+                  fontWeight: FontWeight.bold, 
+                  color: isDark ? Colors.white : Colors.black,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Gestion des machines de recyclage',
+                style: TextStyle(color: Colors.grey[500], fontSize: 14),
+              ),
+            ],
+          ),
+          ElevatedButton.icon(
+            onPressed: _showAddMachineDialog,
+            icon: const Icon(Icons.add, size: 16),
+            label: const Text('Nouvelle machine'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A1A18),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              elevation: 0,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
       ),
     );
   }

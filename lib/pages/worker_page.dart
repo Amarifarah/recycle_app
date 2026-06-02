@@ -1262,8 +1262,6 @@ class _WorkerHistoryDialog extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            Icon(Icons.chevron_right,
-                                size: 16, color: Colors.grey[400]),
                           ],
                         ),
                       );

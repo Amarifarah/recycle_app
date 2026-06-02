@@ -126,6 +126,41 @@ class LoginModel extends ChangeNotifier {
     }
   }
 
+  // --- ÉTAPE 2 : RÉINITIALISATION AVEC CODE ---
+  Future<bool> resetPassword(String email, String code, String newPassword) async {
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final response = await http.post(
+        Uri.parse(apiUrl.replaceAll("/login", "/reset-password")),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "email": email,
+          "code": code,
+          "newPassword": newPassword,
+        }),
+      );
+
+      isLoading = false;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        notifyListeners();
+        return true;
+      } else {
+        final data = jsonDecode(response.body);
+        errorMessage = data['message'] ?? "Code invalide ou expiré.";
+        notifyListeners();
+        return false;
+      }
+    } catch (e) {
+      isLoading = false;
+      errorMessage = "Erreur réseau : $e";
+      notifyListeners();
+      return false;
+    }
+  }
+
   // Ajout d'une méthode pour se déconnecter
   Future<void> logout() async {
     try {
