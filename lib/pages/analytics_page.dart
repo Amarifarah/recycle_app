@@ -112,7 +112,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       const SizedBox(height: 32),
                       
                       _buildSectionTitle("Matière dominante par Wilaya"),
-                      _buildTopClassPerCity(context, data['top_class_par_ville'] ?? []),
+                      _buildTopClassPerCity(context, data['matiere_dominante_par_wilaya'] ?? []),
                       
                       const SizedBox(height: 32),
                       
@@ -464,13 +464,10 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 
   Widget _buildTopClassPerCity(BuildContext context, List<dynamic> items) {
     if (items.isEmpty) {
-      items = [
-        {'wilaya': 'Alger', 'class': 'PET', 'volume': 450},
-        {'wilaya': 'Oran', 'class': 'ALU', 'volume': 320},
-        {'wilaya': 'Constantine', 'class': 'PET', 'volume': 210},
-        {'wilaya': 'Annaba', 'class': 'ALU', 'volume': 180},
-        {'wilaya': 'Blida', 'class': 'PET', 'volume': 150},
-      ];
+      return Container(
+        padding: const EdgeInsets.all(16),
+        child: Text("Aucune donnée disponible", style: TextStyle(color: Colors.grey[500], fontSize: 13)),
+      );
     }
     
     return SizedBox(
@@ -481,9 +478,10 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         separatorBuilder: (_, __) => const SizedBox(width: 16),
         itemBuilder: (context, i) {
           final item = items[i];
-          final isPET = item['class'] == 'PET';
+          final isPET = item['type'] == 'PET';
           final color = isPET ? const Color(0xFF10B981) : const Color(0xFF3B82F6);
           final icon = isPET ? Icons.eco : Icons.precision_manufacturing;
+          final formattedType = item['formatted_type'] ?? (isPET ? 'Plastique (PET)' : 'Aluminium (ALU)');
           
           return Container(
             width: 170,
@@ -520,7 +518,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                   ],
                 ),
                 const Spacer(),
-                Text(isPET ? "Plastique (PET)" : "Aluminium (ALU)", style: GoogleFonts.readexPro(fontSize: 11, color: Colors.grey)),
+                Text(formattedType, style: GoogleFonts.readexPro(fontSize: 11, color: Colors.grey)),
                 Text("${item['volume']} kg", style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: color)),
               ],
             ),
