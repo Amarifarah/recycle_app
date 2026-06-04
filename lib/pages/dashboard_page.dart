@@ -458,75 +458,117 @@ class _DashboardHomeState extends State<DashboardHome> {
     }
   }
 
-  void _showWorkerAssignmentDialog(
-    BuildContext context,
-    String notifId,
-    String type,
-    NotificationProvider provider,
-  ) async {
-    final workerProvider = Provider.of<WorkerProvider>(context, listen: false);
-    await workerProvider.fetchWorkers();
+ // ✅ NOUVELLE VERSION
+void _showWorkerAssignmentDialog(
+  BuildContext context,
+  String notifId,
+  String type,
+  NotificationProvider provider,
+) async {
+  final workerProvider = Provider.of<WorkerProvider>(context, listen: false);
 
-    WorkerRole requiredRole = type.toLowerCase().contains('panne')
-        ? WorkerRole.technicien
-        : WorkerRole.videur;
-    List<Worker> availableWorkers = workerProvider.getAvailableWorkers(
-      requiredRole,
-    );
+  await workerProvider.fetchWorkers();
 
-    if (!context.mounted) return;
+  // 1️⃣ Retrouver la notification
+  final notif = provider.pendingNotifications.firstWhere(
+    (n) => n['_id'].toString() == notifId,
+    orElse: () => {},
+  );
 
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: Text(
-            "Assigner un ${requiredRole == WorkerRole.technicien ? 'Technicien' : 'Videur'}",
-          ),
-          content: SizedBox(
-            width: 300,
-            child: availableWorkers.isEmpty
-                ? const Text(
-                    "Aucun travailleur disponible pour ce rôle.",
-                    style: TextStyle(color: Colors.red),
-                  )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: availableWorkers.map((w) {
-                      return ListTile(
-                        leading: CircleAvatar(child: Text(w.initials)),
-                        title: Text(w.nomcomplet),
-                        subtitle: Text(w.email),
-                        onTap: () async {
-                          Navigator.pop(ctx);
-                          bool ok = await provider.assignWorker(
-                            notifId,
-                            w.nomcomplet,
-                            w.email,
-                          );
-                          if (ok && context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text("Assigné à ${w.nomcomplet}"),
-                              ),
-                            );
-                          }
-                        },
-                      );
-                    }).toList(),
-                  ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text("Annuler"),
-            ),
+  // 2️⃣ Lire la machine imbriquée directement dans la notif
+  final dynamic machineData = notif['machine'];
+  final String machineCity = (
+    machineData?['city'] ??
+    machineData?['wilaya'] ??
+    ''
+  ).toString().trim();
+
+  // 3️⃣ Déterminer le rôle requis
+  final WorkerRole requiredRole = type.toLowerCase().contains('panne')
+      ? WorkerRole.technicien
+      : WorkerRole.videur;
+
+  // 4️⃣ Filtrer les workers
+  final List<Worker> availableWorkers = workerProvider.getAvailableWorkersByCity(
+    requiredRole,
+    machineCity,
+  );
+
+  print("🏙️ machineCity: '$machineCity'");
+  print("👷 workers trouvés: ${availableWorkers.length}");
+
+  if (!context.mounted) return;
+
+  showDialog(
+    context: context,
+    builder: (ctx) {
+      return AlertDialog(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text("Assigner un ${requiredRole == WorkerRole.technicien ? 'Technicien' : 'Videur'}"),
+            if (machineCity.isNotEmpty)
+              Text(
+                "Wilaya : $machineCity",
+                style: const TextStyle(fontSize: 13, color: Colors.grey),
+              ),
           ],
-        );
-      },
-    );
-  }
-
+        ),
+        content: SizedBox(
+          width: 300,
+          height: 400,
+          child: availableWorkers.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.location_off, size: 48, color: Colors.grey),
+                      const SizedBox(height: 12),
+                      Text(
+                        "Aucun ${requiredRole == WorkerRole.technicien ? 'technicien' : 'videur'} disponible à $machineCity",
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  itemCount: availableWorkers.length,
+                  itemBuilder: (context, index) {
+                    final w = availableWorkers[index];
+                    return ListTile(
+                      leading: CircleAvatar(child: Text(w.initials)),
+                      title: Text(w.nomcomplet),
+                      subtitle: Text(w.email),
+                      trailing: Text(
+                        w.city,
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
+                      onTap: () async {
+                        Navigator.pop(ctx);
+                        bool ok = await provider.assignWorker(
+                          notifId, w.nomcomplet, w.email,
+                        );
+                        if (ok && context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text("Assigné à ${w.nomcomplet}")),
+                          );
+                        }
+                      },
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Annuler"),
+          ),
+        ],
+      );
+    },
+  );
+}
   Widget _buildStatsRow(BuildContext context, SettingsProvider settings) {
     final model = Provider.of<DashboardPageModel>(context);
 

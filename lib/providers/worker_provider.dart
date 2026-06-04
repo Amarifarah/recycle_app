@@ -228,4 +228,29 @@ class WorkerProvider with ChangeNotifier {
         .where((w) => w.role == role && w.status == WorkerStatus.available)
         .toList();
   }
-}
+  
+List<Worker> getAvailableWorkersByCity(WorkerRole role, String city) {
+  String normalize(String s) => s
+    .toLowerCase()
+    .trim()
+    .replaceAll(RegExp(r'\s+'), ' ')
+    .replaceAll(RegExp(r'[èéêë]'), 'e')
+    .replaceAll(RegExp(r'[àâä]'), 'a')
+    .replaceAll(RegExp(r'[ùûü]'), 'u')
+    .replaceAll(RegExp(r'[îï]'), 'i')
+    .replaceAll(RegExp(r'[ôö]'), 'o');
+
+  final normalizedCity = normalize(city);
+  
+  print("🔍 Recherche city normalisée: '$normalizedCity'");
+  print("📋 Workers disponibles:");
+  for (var w in _workers) {
+    print("  → '${w.nomcomplet}' | city='${w.city}' | normalized='${normalize(w.city)}' | role=${w.role} | status=${w.status}");
+  }
+
+  return _workers.where((w) =>
+    w.role == role &&
+    w.status == WorkerStatus.available &&
+    normalize(w.city) == normalizedCity
+  ).toList();
+}}
